@@ -1,25 +1,27 @@
-import logo from './logo.svg';
-import './App.css';
+import "./styles.css";
+import '@radix-ui/themes/styles.css';
+import { Theme } from '@radix-ui/themes';
+import { useState, useEffect, useCallback, useRef } from "react";
+import Section from "./Section";
 
-function App() {
+export default function App() {
+  const [sections, setSections] = useState([{ id: Date.now() }]);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
+    <body>
+      <Theme>
+        <div>
+        {sections.map((section) => (
+          <Section key={section.id} section={section} />
+        ))}
+        <button
+          className="new-section"
+          onClick={() => setSections([...sections, { id: Date.now() }])}
         >
-          Learn React
-        </a>
-      </header>
-    </div>
+          New Section
+        </button>
+      </div>
+      </Theme>
+    </body>   
   );
 }
-
-export default App;
