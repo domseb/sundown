@@ -39,6 +39,32 @@ export default function Grid({
     };
   }, [newBlockSpan, blockTitles, onBlocksSave]);
 
+  useEffect(() => {
+    const handleKeyPress = (event) => {
+      // Deselect the text input when hitting the return key
+      if (event.key === 'Enter' && currentBlock.current) {
+        currentBlock.current = null;
+      }
+
+      // Delete the selected block when hitting backspace or delete key
+      if (
+        (event.key === 'Backspace' || event.key === 'Delete') &&
+        currentBlock.current
+      ) {
+        const updatedBlocks = blocks.filter(
+          (block) => block.id !== currentBlock.current.id
+        );
+        onBlocksSave(updatedBlocks);
+        currentBlock.current = null;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [blocks, onBlocksSave]);
+
   const handleGridEnter = (index) => {
     const colPlace =
       (index + 1) % columnCount === 0
@@ -173,10 +199,9 @@ export default function Grid({
           >
             {/* Radix UI TextField.Input */}
             <TextField.Input
-              value={blockTitles[block.id] || ''}
-              onValueChange={(newValue) =>
-                handleTitleChange(block.id, newValue)
-              }
+              value={blockTitles[block.id] || ""}
+              onChange={(e) => handleTitleChange(block.id, e.target.value)}
+              autoFocus={block.id === newBlockSpan?.id}
             />
 
             <motion.div className="resizer">

@@ -13,7 +13,7 @@ export default function Section() {
   const [autoGrid, setAutoGrid] = useState(false);
   const [snapGrid, setSnapGrid] = useState(true);
   const [minWidth, setMinWidth] = useState(200);
-  const [columnCount, setColumnCount] = useState(12);
+  const [columnCount, setColumnCount] = useState(5);
   const [rowCount, setRowCount] = useState(1);
 
   const handleAutoGrid = () => {
