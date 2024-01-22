@@ -7,7 +7,7 @@ import AutoGrid from "./AutoGrid";
 
 export default function Section() {
   const [gap, setGap] = useState(8);
-  const [height, setHeight] = useState(150);
+  const [height, setHeight] = useState(50); // change height of rows
   const [blocks, setBlocks] = useState([]);
   const [resizing, setResizing] = useState(false);
   const [autoGrid, setAutoGrid] = useState(false);
@@ -27,7 +27,7 @@ export default function Section() {
   const addNewBlock = () => {
     setBlocks((blocks) => [
       ...blocks,
-      { columns: [1, 2], rows: [1, 2], id: Date.now(), widthType: "fill" }
+      { columns: [1, 2], rows: [1, 2], id: Date.now(), widthType: "fill" },
     ]);
   };
 
