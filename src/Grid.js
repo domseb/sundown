@@ -1,10 +1,10 @@
 // Replace this import with the correct import statement based on your project structure
-import { useState, useEffect, useRef } from 'react';
-import { Rnd } from 'react-rnd';
-import { motion } from 'framer-motion';
-import * as ToggleGroup from '@radix-ui/react-toggle-group';
-import { Reorder } from 'framer-motion';
-import { TextField } from '@radix-ui/themes'; // Updated import statement
+import { useState, useEffect, useRef } from "react";
+import { Rnd } from "react-rnd";
+import { motion } from "framer-motion";
+import * as ToggleGroup from "@radix-ui/react-toggle-group";
+import { Reorder } from "framer-motion";
+import { TextField } from "@radix-ui/themes"; // Updated import statement
 
 export default function Grid({
   onBlocksSave,
@@ -13,6 +13,13 @@ export default function Grid({
   height,
   columnCount,
   rowCount,
+  rowGroups = [
+    { rows: 2, className: "focus-a" },
+    { rows: 3, className: "focus-b" },
+    { rows: 1, className: "focus-c" },
+    { rows: 4, className: "focus-d" },
+    { rows: 2, className: "focus-e" },
+  ],
   minWidth,
 }) {
   const blocksRef = useRef([]);
@@ -27,28 +34,28 @@ export default function Grid({
       if (newBlockSpan !== null) {
         onBlocksSave((blocks) => [
           ...blocks,
-          { ...newBlockSpan, title: blockTitles[newBlockSpan.id] || '' },
+          { ...newBlockSpan, title: blockTitles[newBlockSpan.id] || "" },
         ]);
         setNewBlockSpan(null);
       }
     };
 
-    document.addEventListener('mouseup', saveNewBlock);
+    document.addEventListener("mouseup", saveNewBlock);
     return () => {
-      document.removeEventListener('mouseup', saveNewBlock);
+      document.removeEventListener("mouseup", saveNewBlock);
     };
   }, [newBlockSpan, blockTitles, onBlocksSave]);
 
   useEffect(() => {
     const handleKeyPress = (event) => {
       // Deselect the text input when hitting the return key
-      if (event.key === 'Enter' && currentBlock.current) {
+      if (event.key === "Enter" && currentBlock.current) {
         currentBlock.current = null;
       }
 
       // Delete the selected block when hitting backspace or delete key
       if (
-        (event.key === 'Backspace' || event.key === 'Delete') &&
+        (event.key === "Backspace" || event.key === "Delete") &&
         currentBlock.current
       ) {
         const updatedBlocks = blocks.filter(
@@ -59,17 +66,15 @@ export default function Grid({
       }
     };
 
-    document.addEventListener('keydown', handleKeyPress);
+    document.addEventListener("keydown", handleKeyPress);
     return () => {
-      document.removeEventListener('keydown', handleKeyPress);
+      document.removeEventListener("keydown", handleKeyPress);
     };
   }, [blocks, onBlocksSave]);
 
   const handleGridEnter = (index) => {
     const colPlace =
-      (index + 1) % columnCount === 0
-        ? columnCount
-        : (index + 1) % columnCount;
+      (index + 1) % columnCount === 0 ? columnCount : (index + 1) % columnCount;
     const rowPlace = Math.ceil((index + 1) / columnCount);
     if (newBlockSpan) {
       const newBlock = { ...newBlockSpan };
@@ -87,7 +92,7 @@ export default function Grid({
     setNewBlockSpan({
       id: Date.now(),
       columns: [col, col + 1],
-      widthType: 'fill',
+      widthType: "fill",
       rows: [
         Math.ceil((index + 1) / columnCount),
         Math.ceil((index + 1) / columnCount) + 1,
@@ -119,7 +124,7 @@ export default function Grid({
 
   const handleDrag = (e, pointInfo) => {
     if (!currentBlock.current) return;
-    if (e.target.classList.contains('resize')) return;
+    if (e.target.classList.contains("resize")) return;
 
     const colWidth = columnsRef.current[0].getBoundingClientRect().width;
     const updatedBlocks = [...blocks];
@@ -163,42 +168,44 @@ export default function Grid({
             gridTemplateColumns: `repeat( ${columnCount}, minmax(0, 1fr) )`,
             gridTemplateRows: `repeat( ${rowCount}, ${height}px )`,
           }}
-          className="shadow-grid"
+          className="shadow-grid" // The grid that is shown on drag
         >
           <div
             className="new-item"
             style={{
-              gridColumn: newBlockSpan.columns.join('/'),
-              gridRow: newBlockSpan.rows.join('/'),
+              gridColumn: newBlockSpan.columns.join("/"),
+              gridRow: newBlockSpan.rows.join("/"),
             }}
           />
         </div>
       )}
       <div
         style={{
-          pointerEvents: 'none',
+          pointerEvents: "none",
           gap: gap,
           gridTemplateColumns: `repeat( ${columnCount}, minmax(0px, 1fr) )`,
           gridTemplateRows: `repeat( ${rowCount}, ${height}px )`,
         }}
-        className="grid"
+        className="grid" // The grid that is shown on draw
       >
         {blocks.map((block, index) => (
           <motion.div
             className={`block ${
               currentBlock.current?.id === block.id
-                ? 'resizing'
-                : 'not-resizing'
+                ? "resizing"
+                : "not-resizing"
             } ${block.widthType}`}
             key={index}
             style={{
-              gridColumn: block.columns.join('/'),
-              gridRow: block.rows.join('/'),
+              gridColumn: block.columns.join("/"),
+              gridRow: block.rows.join("/"),
             }}
             ref={(el) => (blocksRef.current[block.id] = el)}
           >
             {/* Radix UI TextField.Input */}
             <TextField.Input
+              variant="soft"
+              color="red"
               value={blockTitles[block.id] || ""}
               onChange={(e) => handleTitleChange(block.id, e.target.value)}
               autoFocus={block.id === newBlockSpan?.id}
@@ -262,7 +269,7 @@ export default function Grid({
           gridTemplateColumns: `repeat( ${columnCount}, minmax(0, 1fr) )`,
           gridTemplateRows: `repeat( ${rowCount}, ${height}px )`,
         }}
-        className="shadow-grid"
+        className="shadow-grid" // The grid that is shown by default
       >
         {[...Array(columnCount * rowCount)].map((col, index) => (
           <div

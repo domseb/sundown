@@ -40,8 +40,8 @@ li {
 .section {
   position: relative;
   margin-bottom: 8px;
-  /* padding: 32px 32px 96px 32px; */
-  background: #f6f6f6;
+  padding: 32px 32px 96px 32px;
+  background: #f2ebe3;
 }
 
 .empty-text {
@@ -62,9 +62,9 @@ li {
   cursor: pointer;
   position: relative;
   border: 2px solid rgba(199, 94, 94, 0.5);
-  padding: 16;
+  padding: 4px;
   pointer-events: auto;
-  background: rgba(199, 94, 94, 0.2);
+  background: #fddbdd;
 }
 
 .block.fit {
@@ -94,7 +94,7 @@ li {
   z-index: 20;
   background: white;
   border: 1.5px solid rgba(56, 88, 233, 1);
-  border-radius: 2px;
+  border-radius: 4px;
   width: 10px;
   height: 10px;
   cursor: se-resize;
@@ -102,7 +102,7 @@ li {
 
 .tools {
   left: 8px;
-  top: 8px;
+  bottom: 8px;
   position: absolute;
   z-index: 20;
   display: flex;
@@ -167,15 +167,58 @@ svg {
 
 .shadow-item {
   cursor: pointer;
-  background-color: rgba(0, 0, 0, 0.03);
+  /* background-color: rgba(0, 0, 0, 0.03); */
+}
+
+.shadow-item:nth-child(1):before {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 1px; /* suit your need */
+  background: rgba(0, 0, 0, 0.1); /* suit your need */
+  top: 91px;
+  left: 0;
+}
+
+.shadow-item:nth-child(2):before {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 1px; /* suit your need */
+  background: rgba(0, 0, 0, 0.1); /* suit your need */
+  top: 235px;
+  left: 0;
+}
+
+.shadow-item:nth-child(3):before {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 1px; /* suit your need */
+  background: rgba(0, 0, 0, 0.1); /* suit your need */
+  top: 283px;
+  left: 0;
+}
+
+.shadow-item:nth-child(4):before {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 1px; /* suit your need */
+  background: rgba(0, 0, 0, 0.1); /* suit your need */
+  top: 476px;
+  left: 0;
 }
 
 .shadow-item:hover {
   background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  transition: ease all 0.3s;
 }
 
 .new-item {
-  background: rgba(56, 88, 233, 0.2);
+  background: rgba(0, 0, 0, 0.075);
+  border-radius: 4px;
 }
 
 .add-row {
@@ -202,10 +245,12 @@ svg {
 
 .add-block:hover {
   background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
 }
 
 .add-new:hover {
   background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
 }
 
 .ToggleGroup {

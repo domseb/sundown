@@ -7,14 +7,14 @@ import AutoGrid from "./AutoGrid";
 
 export default function Section() {
   const [gap, setGap] = useState(8);
-  const [height, setHeight] = useState(50); // change height of rows
+  const [height, setHeight] = useState(40); // change height of rows
   const [blocks, setBlocks] = useState([]);
   const [resizing, setResizing] = useState(false);
   const [autoGrid, setAutoGrid] = useState(false);
   const [snapGrid, setSnapGrid] = useState(true);
   const [minWidth, setMinWidth] = useState(200);
   const [columnCount, setColumnCount] = useState(5);
-  const [rowCount, setRowCount] = useState(1);
+  const [rowCount, setRowCount] = useState(12);
 
   const handleAutoGrid = () => {
     setAutoGrid(!autoGrid);
