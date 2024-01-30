@@ -11,15 +11,16 @@ export default function App() {
     <body>
       <Theme>
         <div>
+          <h1>Weekly Planner</h1>
         {sections.map((section) => (
           <Section key={section.id} section={section} />
         ))}
-        <button
+        {/* <button
           className="new-section"
           onClick={() => setSections([...sections, { id: Date.now() }])}
         >
           New Section
-        </button>
+        </button> */}
       </div>
       </Theme>
     </body>   

@@ -1,0 +1,7 @@
+.radix-themes {
+  --default-font-family: 'Agrandir', sans-serif;
+}
+
+.rt-TextFieldInput {
+  font-size: 18px !important;
+}

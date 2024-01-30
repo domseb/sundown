@@ -1,4 +1,5 @@
 import "./styles.css";
+import './theme-config.css';
 import { useState, useEffect, useCallback, useRef } from "react";
 import * as Toggle from "@radix-ui/react-toggle";
 import Grid from "./Grid";
@@ -6,8 +7,8 @@ import Flex from "./Flex";
 import AutoGrid from "./AutoGrid";
 
 export default function Section() {
-  const [gap, setGap] = useState(8);
-  const [height, setHeight] = useState(40); // change height of rows
+  const [gap, setGap] = useState(9);
+  const [height, setHeight] = useState(45); // change height of rows
   const [blocks, setBlocks] = useState([]);
   const [resizing, setResizing] = useState(false);
   const [autoGrid, setAutoGrid] = useState(false);
@@ -37,7 +38,7 @@ export default function Section() {
 
   return (
     <div className="section">
-      <div className="toolbar ToggleGroup">
+      {/* <div className="toolbar ToggleGroup">
         <Toggle.Root
           pressed={snapGrid}
           onPressedChange={setSnapGrid}
@@ -125,7 +126,7 @@ export default function Section() {
             </div>
           </>
         )}
-      </div>
+      </div> */}
       {showGrid && (
         <Grid
           blocks={blocks}

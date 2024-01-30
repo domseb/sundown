@@ -28,6 +28,7 @@ export default function Grid({
   const currentBlock = useRef(null);
   const [resizing, setResizing] = useState(false);
   const [blockTitles, setBlockTitles] = useState({});
+  const daysOfWeek = ["M", "T", "W", "T", "F"];
 
   useEffect(() => {
     const saveNewBlock = (event) => {
@@ -160,7 +161,26 @@ export default function Grid({
   };
 
   return (
+    <div>
     <div className="container">
+            {/* Column Titles */}
+            <div
+        style={{
+          display: "grid",
+          gap: gap,
+          gridTemplateColumns: `repeat( ${columnCount}, minmax(0px, 1fr) )`,
+          gridTemplateRows: "auto",
+        }}
+      >
+        {daysOfWeek.map((day, index) => (
+          <div key={index} className="column-title">
+            {day}
+          </div>
+        ))}
+      </div>
+    </div>
+    <div className="container">
+
       {newBlockSpan && (
         <div
           style={{
@@ -270,7 +290,7 @@ export default function Grid({
           gridTemplateRows: `repeat( ${rowCount}, ${height}px )`,
         }}
         className="shadow-grid" // The grid that is shown by default
-      >
+      > 
         {[...Array(columnCount * rowCount)].map((col, index) => (
           <div
             className="shadow-item"
@@ -285,6 +305,7 @@ export default function Grid({
         ))}
       </div>
       <div></div>
+    </div>
     </div>
   );
 }
