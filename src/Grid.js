@@ -1,9 +1,6 @@
 // Replace this import with the correct import statement based on your project structure
 import { useState, useEffect, useRef } from "react";
-import { Rnd } from "react-rnd";
 import { motion } from "framer-motion";
-import * as ToggleGroup from "@radix-ui/react-toggle-group";
-import { Reorder } from "framer-motion";
 import { TextField } from "@radix-ui/themes"; // Updated import statement
 
 export default function Grid({
@@ -25,6 +22,7 @@ export default function Grid({
   const blocksRef = useRef([]);
   const columnsRef = useRef([]);
   const [newBlockSpan, setNewBlockSpan] = useState(null);
+  const [selectedBlockId, setSelectedBlockId] = useState(null); // State to track the selected block
   const currentBlock = useRef(null);
   const [resizing, setResizing] = useState(false);
   const [blockTitles, setBlockTitles] = useState({});
@@ -49,20 +47,23 @@ export default function Grid({
 
   useEffect(() => {
     const handleKeyPress = (event) => {
-      // Deselect the text input when hitting the return key
-      if (event.key === "Enter" && currentBlock.current) {
-        currentBlock.current = null;
-      }
-
-      // Delete the selected block when hitting backspace or delete key
+      // Check if a text field is focused
       if (
         (event.key === "Backspace" || event.key === "Delete") &&
-        currentBlock.current
+        currentBlock.current &&
+        document.activeElement.tagName !== "INPUT"
       ) {
         const updatedBlocks = blocks.filter(
           (block) => block.id !== currentBlock.current.id
         );
         onBlocksSave(updatedBlocks);
+        currentBlock.current = null;
+        setSelectedBlockId(null); // Deselect the block after deletion
+      }
+
+      // Deselect block if Esc key is pressed
+      if (event.key === "Escape") {
+        setSelectedBlockId(null);
         currentBlock.current = null;
       }
     };
@@ -72,6 +73,24 @@ export default function Grid({
       document.removeEventListener("keydown", handleKeyPress);
     };
   }, [blocks, onBlocksSave]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        selectedBlockId &&
+        blocksRef.current[selectedBlockId] &&
+        !blocksRef.current[selectedBlockId].contains(event.target)
+      ) {
+        setSelectedBlockId(null);
+        currentBlock.current = null;
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [selectedBlockId]);
 
   const handleGridEnter = (index) => {
     const colPlace =
@@ -162,79 +181,121 @@ export default function Grid({
 
   return (
     <div>
-    <div className="container">
-            {/* Column Titles */}
-            <div
-        style={{
-          display: "grid",
-          gap: gap,
-          gridTemplateColumns: `repeat( ${columnCount}, minmax(0px, 1fr) )`,
-          gridTemplateRows: "auto",
-        }}
-      >
-        {daysOfWeek.map((day, index) => (
-          <div key={index} className="column-title">
-            {day}
-          </div>
-        ))}
-      </div>
-    </div>
-    <div className="container">
-
-      {newBlockSpan && (
+      <div className="container">
+        {/* Column Titles */}
         <div
           style={{
+            display: "grid",
             gap: gap,
-            gridTemplateColumns: `repeat( ${columnCount}, minmax(0, 1fr) )`,
+            gridTemplateColumns: `repeat( ${columnCount}, minmax(0px, 1fr) )`,
+            gridTemplateRows: "auto",
+          }}
+        >
+          {daysOfWeek.map((day, index) => (
+            <div key={index} className="column-title">
+              {day}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="container">
+        {newBlockSpan && (
+          <div
+            style={{
+              gap: gap,
+              gridTemplateColumns: `repeat( ${columnCount}, minmax(0, 1fr) )`,
+              gridTemplateRows: `repeat( ${rowCount}, ${height}px )`,
+            }}
+            className="shadow-grid" // The grid that is shown on drag
+          >
+            <div
+              className="new-item"
+              style={{
+                gridColumn: newBlockSpan.columns.join("/"),
+                gridRow: newBlockSpan.rows.join("/"),
+              }}
+            />
+          </div>
+        )}
+        <div
+          style={{
+            pointerEvents: "none",
+            gap: gap,
+            gridTemplateColumns: `repeat( ${columnCount}, minmax(0px, 1fr) )`,
             gridTemplateRows: `repeat( ${rowCount}, ${height}px )`,
           }}
-          className="shadow-grid" // The grid that is shown on drag
+          className="grid" // The actual grid
         >
-          <div
-            className="new-item"
-            style={{
-              gridColumn: newBlockSpan.columns.join("/"),
-              gridRow: newBlockSpan.rows.join("/"),
-            }}
-          />
-        </div>
-      )}
-      <div
-        style={{
-          pointerEvents: "none",
-          gap: gap,
-          gridTemplateColumns: `repeat( ${columnCount}, minmax(0px, 1fr) )`,
-          gridTemplateRows: `repeat( ${rowCount}, ${height}px )`,
-        }}
-        className="grid" // The grid that is shown on draw
-      >
-        {blocks.map((block, index) => (
-          <motion.div
-            className={`block ${
-              currentBlock.current?.id === block.id
-                ? "resizing"
-                : "not-resizing"
-            } ${block.widthType}`}
-            key={index}
-            style={{
-              gridColumn: block.columns.join("/"),
-              gridRow: block.rows.join("/"),
-            }}
-            ref={(el) => (blocksRef.current[block.id] = el)}
-          >
-            {/* Radix UI TextField.Input */}
-            <TextField.Input
-              variant="soft"
-              color="red"
-              value={blockTitles[block.id] || ""}
-              onChange={(e) => handleTitleChange(block.id, e.target.value)}
-              autoFocus={block.id === newBlockSpan?.id}
-            />
+          {blocks.map((block, index) => (
+            <motion.div
+              className={`block ${
+                currentBlock.current?.id === block.id
+                  ? "resizing"
+                  : "not-resizing"
+              } ${block.widthType} ${
+                selectedBlockId === block.id ? "selected" : ""
+              }`}
+              key={index}
+              style={{
+                gridColumn: block.columns.join("/"),
+                gridRow: block.rows.join("/"),
+              }}
+              ref={(el) => (blocksRef.current[block.id] = el)}
+              onMouseDown={(e) => {
+                if (e.target.tagName !== "INPUT") {
+                  currentBlock.current = {
+                    id: block.id,
+                    columns: [...block.columns],
+                    rows: [...block.rows],
+                  };
+                  setSelectedBlockId(block.id); // Set the selected block ID
+                }
+              }}
+            >
+              {/* Radix UI TextField.Input */}
+              <TextField.Input
+                variant="soft"
+                color="red"
+                value={blockTitles[block.id] || ""}
+                onChange={(e) => handleTitleChange(block.id, e.target.value)}
+                autoFocus={block.id === newBlockSpan?.id}
+                onFocus={(e) => e.stopPropagation()} // Prevent block selection on text field focus
+              />
 
-            <motion.div className="resizer">
-              <div className="tools">
+              <motion.div className="resizer">
+                <div className="tools">
+                  <motion.div
+                    className="drag-handle"
+                    onPanStart={(e) => {
+                      setResizing(true);
+                      currentBlock.current = {
+                        id: block.id,
+                        columns: [...block.columns],
+                        rows: [...block.rows],
+                      };
+                    }}
+                    onPanEnd={() => {
+                      currentBlock.current = null;
+                      setResizing(false);
+                    }}
+                    onPan={handleDrag}
+                  >
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M8 7H10V5H8V7ZM8 13H10V11H8V13ZM8 19H10V17H8V19ZM14 5V7H16V5H14ZM14 13H16V11H14V13ZM14 19H16V17H14V19Z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </motion.div>
+                </div>
                 <motion.div
-                  className="drag-handle"
+                  className="resize resize-left"
                   onPanStart={(e) => {
                     setResizing(true);
                     currentBlock.current = {
@@ -247,65 +308,35 @@ export default function Grid({
                     currentBlock.current = null;
                     setResizing(false);
                   }}
-                  onPan={handleDrag}
-                >
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M8 7H10V5H8V7ZM8 13H10V11H8V13ZM8 19H10V17H8V19ZM14 5V7H16V5H14ZM14 13H16V11H14V13ZM14 19H16V17H14V19Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </motion.div>
-              </div>
-              <motion.div
-                className="resize resize-left"
-                onPanStart={(e) => {
-                  setResizing(true);
-                  currentBlock.current = {
-                    id: block.id,
-                    columns: [...block.columns],
-                    rows: [...block.rows],
-                  };
-                }}
-                onPanEnd={() => {
-                  currentBlock.current = null;
-                  setResizing(false);
-                }}
-                onPan={handleResize}
-              />
+                  onPan={handleResize}
+                />
+              </motion.div>
             </motion.div>
-          </motion.div>
-        ))}
+          ))}
+        </div>
+        <div
+          style={{
+            gap: gap,
+            gridTemplateColumns: `repeat( ${columnCount}, minmax(0, 1fr) )`,
+            gridTemplateRows: `repeat( ${rowCount}, ${height}px )`,
+          }}
+          className="shadow-grid" // The grid that is shown by default
+        >
+          {[...Array(columnCount * rowCount)].map((col, index) => (
+            <div
+              className="shadow-item"
+              key={index}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleMouseDown(index);
+              }}
+              ref={(el) => (columnsRef.current[index] = el)}
+              onMouseEnter={() => handleGridEnter(index)}
+            ></div>
+          ))}
+        </div>
+        <div></div>
       </div>
-      <div
-        style={{
-          gap: gap,
-          gridTemplateColumns: `repeat( ${columnCount}, minmax(0, 1fr) )`,
-          gridTemplateRows: `repeat( ${rowCount}, ${height}px )`,
-        }}
-        className="shadow-grid" // The grid that is shown by default
-      > 
-        {[...Array(columnCount * rowCount)].map((col, index) => (
-          <div
-            className="shadow-item"
-            key={index}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              handleMouseDown(index);
-            }}
-            ref={(el) => (columnsRef.current[index] = el)}
-            onMouseEnter={() => handleGridEnter(index)}
-          ></div>
-        ))}
-      </div>
-      <div></div>
-    </div>
     </div>
   );
 }

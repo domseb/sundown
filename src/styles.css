@@ -1,34 +1,34 @@
 @font-face {
-  font-family: 'Acma';
-  src: url('./fonts/PPAcma-Black.woff') format('woff');
+  font-family: "Acma";
+  src: url("./fonts/PPAcma-Black.woff") format("woff");
   font-weight: 800;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Acma';
-  src: url('./fonts/PPAcma-Semibold.woff') format('woff');
+  font-family: "Acma";
+  src: url("./fonts/PPAcma-Semibold.woff") format("woff");
   font-weight: 600;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Acma';
-  src: url('./fonts/PPAcma-Light.woff') format('woff');
+  font-family: "Acma";
+  src: url("./fonts/PPAcma-Light.woff") format("woff");
   font-weight: 300;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Acma';
-  src: url('./fonts/PPAcma-Thin.woff') format('woff');
+  font-family: "Acma";
+  src: url("./fonts/PPAcma-Thin.woff") format("woff");
   font-weight: 200;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Agrandir';
-  src: url('./fonts/PPAgrandir-NarrowRegular.woff') format('woff');
+  font-family: "Agrandir";
+  src: url("./fonts/PPAgrandir-NarrowRegular.woff") format("woff");
   font-weight: 400;
   font-style: normal;
 }
@@ -47,23 +47,23 @@ body {
   color: #171717;
   margin: 0;
   padding: 0;
-  background: #f2ebe3 !important;
+  background: var(--crimson-3) !important;
 }
 
 .column-title {
-  font-family: 'Agrandir' !important;
+  font-family: "Agrandir" !important;
   text-align: center;
   margin-bottom: 80px;
-  opacity: .5;
+  opacity: 0.5;
 }
 
 h1 {
-  font-family: 'Acma';
+  font-family: "Acma";
   font-weight: 300;
   font-size: 60px;
   width: 100%;
-  text-align: center; 
-  margin-top: 150px;;
+  text-align: center;
+  margin-top: 150px;
 }
 
 ul,
@@ -111,10 +111,12 @@ li {
   border-radius: 10px;
   cursor: pointer;
   position: relative;
-  border: 2px solid rgba(199, 94, 94, 0.5);
+  box-shadow: 0 0 0 2px var(--crimson-a6);
+  /* border: 2px solid var(--crimson-a5); */
   padding: 4px;
   pointer-events: auto;
-  background: #fddbdd;
+  /* background: #fddbdd; */
+  background: var(--crimson-a4);
 }
 
 .block.fit {
@@ -124,9 +126,17 @@ li {
 .block.fill {
   flex: 1 1 auto;
 }
-
+/* 
 .block.resizing {
   background: rgba(56, 88, 233, 0.2);
+} */
+
+.selected {
+  /* border: 2px solid blue; Change the border color to indicate selection */
+  box-shadow: 0 0 0 4px var(--crimson-a7);
+  transition: 200ms ease;
+  background: var(--crimson-a5);
+  /* background-color: rgba(0, 0, 255, 0.1); Light blue background */
 }
 
 .block:hover .resizer {
@@ -379,4 +389,14 @@ svg {
 .new-section:hover {
   background-color: black;
   color: white;
+}
+
+.delete-button {
+  background: red;
+  color: white;
+  border: none;
+  padding: 5px;
+  cursor: pointer;
+  margin-left: 10px;
+  border-radius: 3px;
 }
