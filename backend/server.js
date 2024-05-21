@@ -56,29 +56,42 @@ app.post("/blocks", async (req, res) => {
 
     console.log("Validated blocks:", validatedBlocks);
 
-    // Clear existing blocks
-    const { error: deleteError } = await supabase
-      .from("blocks")
-      .delete()
-      .neq("id", "");
-    if (deleteError) {
-      console.error("Error deleting blocks:", deleteError);
-      throw deleteError;
-    }
-
-    // Insert new blocks
-    const { error: insertError } = await supabase
-      .from("blocks")
-      .insert(validatedBlocks);
-    if (insertError) {
-      console.error("Error inserting blocks:", insertError);
-      throw insertError;
+    // Upsert blocks (insert new or update existing)
+    for (const block of validatedBlocks) {
+      const { data, error } = await supabase
+        .from("blocks")
+        .upsert(block, { onConflict: ["id"] }); // Use upsert to avoid duplicates
+      if (error) {
+        console.error("Error upserting block:", error);
+        throw error;
+      }
     }
 
     console.log("Blocks saved successfully");
     res.status(200).send("Blocks saved");
   } catch (error) {
     console.error("Error saving blocks:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("/blocks/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from("blocks")
+      .delete()
+      .match({ id });
+
+    if (error) {
+      console.error("Error deleting block:", error);
+      res.status(500).json({ error: error.message });
+    } else {
+      console.log("Deleted block:", data);
+      res.status(200).json({ message: "Block deleted successfully", data });
+    }
+  } catch (error) {
+    console.error("Server error deleting block:", error);
     res.status(500).json({ error: error.message });
   }
 });

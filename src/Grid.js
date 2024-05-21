@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { TextField } from "@radix-ui/themes"; // Updated import statement
+import { fetchBlocks, saveBlocks, deleteBlock } from "./Api";
 
 export default function Grid({
   onBlocksSave,
@@ -29,12 +30,31 @@ export default function Grid({
   const daysOfWeek = ["M", "T", "W", "T", "F"];
 
   useEffect(() => {
+    fetchBlocks()
+      .then((blocksData) => {
+        // Assuming your state expects an array of blocks
+        onBlocksSave(blocksData);
+      })
+      .catch((error) => console.error("Error loading blocks:", error));
+  }, []);
+
+  useEffect(() => {
     const saveNewBlock = (event) => {
       if (newBlockSpan !== null) {
-        onBlocksSave((blocks) => [
-          ...blocks,
-          { ...newBlockSpan, title: blockTitles[newBlockSpan.id] || "" },
-        ]);
+        onBlocksSave((blocks) => {
+          const newBlocks = [
+            ...blocks,
+            { ...newBlockSpan, title: blockTitles[newBlockSpan.id] || "" },
+          ];
+          saveBlocks(newBlocks)
+            .then(() => {
+              console.log("Blocks saved successfully");
+            })
+            .catch((error) => {
+              console.error("Error saving blocks:", error);
+            });
+          return newBlocks;
+        });
         setNewBlockSpan(null);
       }
     };
