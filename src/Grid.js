@@ -26,6 +26,7 @@ export default function Grid({
   const [selectedBlockId, setSelectedBlockId] = useState(null); // State to track the selected block
   const currentBlock = useRef(null);
   const [resizing, setResizing] = useState(false);
+  const [dragging, setDragging] = useState(false); // Track dragging state
   const [blockTitles, setBlockTitles] = useState({});
   const daysOfWeek = ["M", "T", "W", "T", "F"];
 
@@ -66,11 +67,32 @@ export default function Grid({
       }
     };
 
+    const saveBlockPositions = () => {
+      if (currentBlock.current) {
+        const updatedBlocks = blocks.map((block) =>
+          block.id === currentBlock.current.id
+            ? { ...currentBlock.current }
+            : block
+        );
+        saveBlocks(updatedBlocks)
+          .then(() => {
+            console.log("Blocks saved successfully after drag/resize");
+          })
+          .catch((error) => {
+            console.error("Error saving blocks after drag/resize:", error);
+          });
+        currentBlock.current = null;
+      }
+    };
+
     document.addEventListener("mouseup", saveNewBlock);
+    document.addEventListener("mouseup", saveBlockPositions);
+
     return () => {
       document.removeEventListener("mouseup", saveNewBlock);
+      document.removeEventListener("mouseup", saveBlockPositions);
     };
-  }, [newBlockSpan, blockTitles, onBlocksSave]);
+  }, [newBlockSpan, blocks, blockTitles, onBlocksSave]);
 
   useEffect(() => {
     const handleKeyPress = (event) => {
@@ -175,6 +197,7 @@ export default function Grid({
       Math.round(pointInfo.offset.y / (height + gap));
 
     onBlocksSave(updatedBlocks);
+    setResizing(true);
   };
 
   const handleDrag = (e, pointInfo) => {
@@ -204,6 +227,7 @@ export default function Grid({
       Math.round(pointInfo.offset.y / (height + gap));
 
     onBlocksSave(updatedBlocks);
+    setDragging(true);
   };
 
   // Function to handle title changes
@@ -321,7 +345,7 @@ export default function Grid({
                   <motion.div
                     className="drag-handle"
                     onPanStart={(e) => {
-                      setResizing(true);
+                      setDragging(true);
                       currentBlock.current = {
                         id: block.id,
                         columns: [...block.columns],
@@ -329,8 +353,18 @@ export default function Grid({
                       };
                     }}
                     onPanEnd={() => {
+                      setDragging(false);
+                      saveBlocks(blocks)
+                        .then(() => {
+                          console.log("Blocks saved successfully after drag");
+                        })
+                        .catch((error) => {
+                          console.error(
+                            "Error saving blocks after drag:",
+                            error
+                          );
+                        });
                       currentBlock.current = null;
-                      setResizing(false);
                     }}
                     onPan={handleDrag}
                   >
@@ -359,8 +393,18 @@ export default function Grid({
                     };
                   }}
                   onPanEnd={() => {
-                    currentBlock.current = null;
                     setResizing(false);
+                    saveBlocks(blocks)
+                      .then(() => {
+                        console.log("Blocks saved successfully after resize");
+                      })
+                      .catch((error) => {
+                        console.error(
+                          "Error saving blocks after resize:",
+                          error
+                        );
+                      });
+                    currentBlock.current = null;
                   }}
                   onPan={handleResize}
                 />
