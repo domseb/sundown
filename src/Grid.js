@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { TextField } from "@radix-ui/themes"; // Updated import statement
 import { fetchBlocks, saveBlocks, deleteBlock } from "./Api";
-import { v4 as uuidv4 } from "uuid"; // Add this import statement
+import { v4 as uuidv4 } from "uuid";
 
 export default function Grid({
   onBlocksSave,
@@ -32,6 +32,14 @@ export default function Grid({
   useEffect(() => {
     fetchBlocks()
       .then((blocksData) => {
+        // Map the fetched blocks to blockTitles state
+        const titles = {};
+        blocksData.forEach((block) => {
+          titles[block.id] = block.title || "";
+        });
+        setBlockTitles(titles);
+
+        // Assuming your state expects an array of blocks
         onBlocksSave(blocksData);
       })
       .catch((error) => console.error("Error loading blocks:", error));
