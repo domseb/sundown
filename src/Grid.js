@@ -1,8 +1,8 @@
-// Replace this import with the correct import statement based on your project structure
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { TextField } from "@radix-ui/themes"; // Updated import statement
 import { fetchBlocks, saveBlocks, deleteBlock } from "./Api";
+import { v4 as uuidv4 } from "uuid"; // Add this import statement
 
 export default function Grid({
   onBlocksSave,
@@ -32,11 +32,10 @@ export default function Grid({
   useEffect(() => {
     fetchBlocks()
       .then((blocksData) => {
-        // Assuming your state expects an array of blocks
         onBlocksSave(blocksData);
       })
       .catch((error) => console.error("Error loading blocks:", error));
-  }, []);
+  }, [onBlocksSave]);
 
   useEffect(() => {
     const saveNewBlock = (event) => {
@@ -67,16 +66,24 @@ export default function Grid({
 
   useEffect(() => {
     const handleKeyPress = (event) => {
-      // Check if a text field is focused
       if (
         (event.key === "Backspace" || event.key === "Delete") &&
         currentBlock.current &&
         document.activeElement.tagName !== "INPUT"
       ) {
-        const updatedBlocks = blocks.filter(
-          (block) => block.id !== currentBlock.current.id
-        );
+        const blockId = currentBlock.current.id;
+        const updatedBlocks = blocks.filter((block) => block.id !== blockId);
         onBlocksSave(updatedBlocks);
+
+        // Call deleteBlock function
+        deleteBlock(blockId)
+          .then(() => {
+            console.log("Block deleted successfully");
+          })
+          .catch((error) => {
+            console.error("Error deleting block:", error);
+          });
+
         currentBlock.current = null;
         setSelectedBlockId(null); // Deselect the block after deletion
       }
@@ -130,7 +137,7 @@ export default function Grid({
         ? parseInt(columnCount)
         : (index + 1) % columnCount;
     setNewBlockSpan({
-      id: Date.now(),
+      id: uuidv4(),
       columns: [col, col + 1],
       widthType: "fill",
       rows: [
@@ -197,6 +204,24 @@ export default function Grid({
       ...prevTitles,
       [blockId]: newTitle,
     }));
+  };
+
+  const handleTitleBlur = (blockId) => {
+    const updatedBlocks = blocks.map((block) =>
+      block.id === blockId ? { ...block, title: blockTitles[blockId] } : block
+    );
+
+    console.log("Updated blocks with new title on blur:", updatedBlocks);
+
+    onBlocksSave(updatedBlocks);
+
+    saveBlocks(updatedBlocks)
+      .then(() => {
+        console.log("Blocks saved successfully with titles on blur");
+      })
+      .catch((error) => {
+        console.error("Error saving blocks with titles on blur:", error);
+      });
   };
 
   return (
@@ -278,6 +303,7 @@ export default function Grid({
                 color="red"
                 value={blockTitles[block.id] || ""}
                 onChange={(e) => handleTitleChange(block.id, e.target.value)}
+                onBlur={() => handleTitleBlur(block.id)}
                 autoFocus={block.id === newBlockSpan?.id}
                 onFocus={(e) => e.stopPropagation()} // Prevent block selection on text field focus
               />

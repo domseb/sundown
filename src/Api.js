@@ -25,3 +25,14 @@ export const saveBlocks = async (blocks) => {
     throw error;
   }
 };
+
+// Function to delete a block from the server
+export const deleteBlock = async (id) => {
+  try {
+    const response = await api.delete(`/blocks/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to delete block:", error);
+    throw error;
+  }
+};

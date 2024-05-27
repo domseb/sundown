@@ -57,14 +57,13 @@ app.post("/blocks", async (req, res) => {
     console.log("Validated blocks:", validatedBlocks);
 
     // Upsert blocks (insert new or update existing)
-    for (const block of validatedBlocks) {
-      const { data, error } = await supabase
-        .from("blocks")
-        .upsert(block, { onConflict: ["id"] }); // Use upsert to avoid duplicates
-      if (error) {
-        console.error("Error upserting block:", error);
-        throw error;
-      }
+    const { data, error } = await supabase
+      .from("blocks")
+      .upsert(validatedBlocks, { onConflict: ["id"] });
+
+    if (error) {
+      console.error("Error upserting blocks:", error);
+      throw error;
     }
 
     console.log("Blocks saved successfully");
