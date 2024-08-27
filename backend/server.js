@@ -11,8 +11,7 @@ const supabaseKey =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZWJ1dGtwbGNla3BqcWN4eHVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTYyNjI1NTgsImV4cCI6MjAzMTgzODU1OH0.xfTrYxmFhG3sNtXngpmhmR2JelErrU1uAcSWVO1IHi0";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// app.use(cors());
-app.use(cors({ origin: "https://calendar-app-navy.vercel.app" }));
+app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
