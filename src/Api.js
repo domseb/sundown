@@ -1,6 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
+  // baseURL: "http://localhost:5000/", // Change this to the actual URL if deployed
   baseURL: "https://calendar-app-navy.vercel.app", // Change this to the actual URL if deployed
 });
 
