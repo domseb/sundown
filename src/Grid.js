@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { TextField } from "@radix-ui/themes"; // Updated import statement
+import { TextField, IconButton } from "@radix-ui/themes"; // Import IconButton
 import { fetchBlocks, saveBlocks, deleteBlock } from "./Api";
 import { v4 as uuidv4 } from "uuid";
+import { TrashIcon } from "@radix-ui/react-icons"; // Importing the trashcan icon
 
 export default function Grid({
   onBlocksSave,
@@ -23,24 +24,21 @@ export default function Grid({
   const blocksRef = useRef([]);
   const columnsRef = useRef([]);
   const [newBlockSpan, setNewBlockSpan] = useState(null);
-  const [selectedBlockId, setSelectedBlockId] = useState(null); // State to track the selected block
+  const [selectedBlockId, setSelectedBlockId] = useState(null);
   const currentBlock = useRef(null);
   const [resizing, setResizing] = useState(false);
-  const [dragging, setDragging] = useState(false); // Track dragging state
+  const [dragging, setDragging] = useState(false);
   const [blockTitles, setBlockTitles] = useState({});
   const daysOfWeek = ["M", "T", "W", "T", "F"];
 
   useEffect(() => {
     fetchBlocks()
       .then((blocksData) => {
-        // Map the fetched blocks to blockTitles state
         const titles = {};
         blocksData.forEach((block) => {
           titles[block.id] = block.title || "";
         });
         setBlockTitles(titles);
-
-        // Assuming your state expects an array of blocks
         onBlocksSave(blocksData);
       })
       .catch((error) => console.error("Error loading blocks:", error));
@@ -102,23 +100,19 @@ export default function Grid({
         document.activeElement.tagName !== "INPUT"
       ) {
         const blockId = currentBlock.current.id;
-        const updatedBlocks = blocks.filter((block) => block.id !== blockId);
-        onBlocksSave(updatedBlocks);
 
-        // Call deleteBlock function
         deleteBlock(blockId)
           .then(() => {
-            console.log("Block deleted successfully");
+            onBlocksSave(blocks.filter((block) => block.id !== blockId));
           })
           .catch((error) => {
             console.error("Error deleting block:", error);
           });
 
         currentBlock.current = null;
-        setSelectedBlockId(null); // Deselect the block after deletion
+        setSelectedBlockId(null);
       }
 
-      // Deselect block if Esc key is pressed
       if (event.key === "Escape") {
         setSelectedBlockId(null);
         currentBlock.current = null;
@@ -186,12 +180,10 @@ export default function Grid({
       (b) => b.id === currentBlock.current.id
     );
 
-    //update horizontal
     updatedBlock.columns[1] =
       currentBlock.current.columns[1] +
       Math.round(pointInfo.offset.x / (colWidth + gap));
 
-    //update vertical
     updatedBlock.rows[1] =
       currentBlock.current.rows[1] +
       Math.round(pointInfo.offset.y / (height + gap));
@@ -202,7 +194,6 @@ export default function Grid({
 
   const handleDrag = (e, pointInfo) => {
     if (!currentBlock.current) return;
-    if (e.target.classList.contains("resize")) return;
 
     const colWidth = columnsRef.current[0].getBoundingClientRect().width;
     const updatedBlocks = [...blocks];
@@ -210,7 +201,6 @@ export default function Grid({
       (b) => b.id === currentBlock.current.id
     );
 
-    //update horizontal
     updatedBlock.columns[0] =
       currentBlock.current.columns[0] +
       Math.round(pointInfo.offset.x / (colWidth + gap));
@@ -218,7 +208,6 @@ export default function Grid({
       currentBlock.current.columns[1] +
       Math.round(pointInfo.offset.x / (colWidth + gap));
 
-    //update vertical
     updatedBlock.rows[0] =
       currentBlock.current.rows[0] +
       Math.round(pointInfo.offset.y / (height + gap));
@@ -230,7 +219,6 @@ export default function Grid({
     setDragging(true);
   };
 
-  // Function to handle title changes
   const handleTitleChange = (blockId, newTitle) => {
     setBlockTitles((prevTitles) => ({
       ...prevTitles,
@@ -243,8 +231,6 @@ export default function Grid({
       block.id === blockId ? { ...block, title: blockTitles[blockId] } : block
     );
 
-    console.log("Updated blocks with new title on blur:", updatedBlocks);
-
     onBlocksSave(updatedBlocks);
 
     saveBlocks(updatedBlocks)
@@ -256,10 +242,19 @@ export default function Grid({
       });
   };
 
+  const handleBlockDelete = (blockId) => {
+    deleteBlock(blockId)
+      .then(() => {
+        onBlocksSave(blocks.filter((block) => block.id !== blockId));
+      })
+      .catch((error) =>
+        console.error(`Error deleting block with ID ${blockId}:`, error)
+      );
+  };
+
   return (
     <div>
       <div className="container">
-        {/* Column Titles */}
         <div
           style={{
             display: "grid",
@@ -283,7 +278,7 @@ export default function Grid({
               gridTemplateColumns: `repeat( ${columnCount}, minmax(0, 1fr) )`,
               gridTemplateRows: `repeat( ${rowCount}, ${height}px )`,
             }}
-            className="shadow-grid" // The grid that is shown on drag
+            className="shadow-grid"
           >
             <div
               className="new-item"
@@ -301,7 +296,7 @@ export default function Grid({
             gridTemplateColumns: `repeat( ${columnCount}, minmax(0px, 1fr) )`,
             gridTemplateRows: `repeat( ${rowCount}, ${height}px )`,
           }}
-          className="grid" // The actual grid
+          className="grid"
         >
           {blocks.map((block, index) => (
             <motion.div
@@ -316,6 +311,7 @@ export default function Grid({
               style={{
                 gridColumn: block.columns.join("/"),
                 gridRow: block.rows.join("/"),
+                cursor: dragging ? "grabbing" : "grab", // Open hand (grab) by default, closed hand (grabbing) while dragging
               }}
               ref={(el) => (blocksRef.current[block.id] = el)}
               onMouseDown={(e) => {
@@ -325,11 +321,30 @@ export default function Grid({
                     columns: [...block.columns],
                     rows: [...block.rows],
                   };
-                  setSelectedBlockId(block.id); // Set the selected block ID
+                  setSelectedBlockId(block.id);
                 }
               }}
+              onPanStart={(e) => {
+                setDragging(true);
+                currentBlock.current = {
+                  id: block.id,
+                  columns: [...block.columns],
+                  rows: [...block.rows],
+                };
+              }}
+              onPanEnd={() => {
+                setDragging(false);
+                saveBlocks(blocks)
+                  .then(() => {
+                    console.log("Blocks saved successfully after drag");
+                  })
+                  .catch((error) => {
+                    console.error("Error saving blocks after drag:", error);
+                  });
+                currentBlock.current = null;
+              }}
+              onPan={handleDrag}
             >
-              {/* Radix UI TextField.Input */}
               <TextField.Input
                 variant="soft"
                 color="red"
@@ -337,50 +352,18 @@ export default function Grid({
                 onChange={(e) => handleTitleChange(block.id, e.target.value)}
                 onBlur={() => handleTitleBlur(block.id)}
                 autoFocus={block.id === newBlockSpan?.id}
-                onFocus={(e) => e.stopPropagation()} // Prevent block selection on text field focus
+                onFocus={(e) => e.stopPropagation()}
               />
 
               <motion.div className="resizer">
                 <div className="tools">
-                  <motion.div
-                    className="drag-handle"
-                    onPanStart={(e) => {
-                      setDragging(true);
-                      currentBlock.current = {
-                        id: block.id,
-                        columns: [...block.columns],
-                        rows: [...block.rows],
-                      };
-                    }}
-                    onPanEnd={() => {
-                      setDragging(false);
-                      saveBlocks(blocks)
-                        .then(() => {
-                          console.log("Blocks saved successfully after drag");
-                        })
-                        .catch((error) => {
-                          console.error(
-                            "Error saving blocks after drag:",
-                            error
-                          );
-                        });
-                      currentBlock.current = null;
-                    }}
-                    onPan={handleDrag}
+                  <IconButton
+                    onClick={() => handleBlockDelete(block.id)}
+                    variant="soft"
+                    color="red"
                   >
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M8 7H10V5H8V7ZM8 13H10V11H8V13ZM8 19H10V17H8V19ZM14 5V7H16V5H14ZM14 13H16V11H14V13ZM14 19H16V17H14V19Z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                  </motion.div>
+                    <TrashIcon />
+                  </IconButton>
                 </div>
                 <motion.div
                   className="resize resize-left"
@@ -418,7 +401,7 @@ export default function Grid({
             gridTemplateColumns: `repeat( ${columnCount}, minmax(0, 1fr) )`,
             gridTemplateRows: `repeat( ${rowCount}, ${height}px )`,
           }}
-          className="shadow-grid" // The grid that is shown by default
+          className="shadow-grid"
         >
           {[...Array(columnCount * rowCount)].map((col, index) => (
             <div

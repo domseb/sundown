@@ -77,6 +77,7 @@ app.post("/blocks", async (req, res) => {
 app.delete("/blocks/:id", async (req, res) => {
   const { id } = req.params;
   try {
+    console.log(`Received request to delete block with id: ${id}`);
     const { data, error } = await supabase
       .from("blocks")
       .delete()
