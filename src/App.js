@@ -8,21 +8,21 @@ export default function App() {
   const [sections, setSections] = useState([{ id: Date.now() }]);
 
   return (
-    <body>
+    <div className="App">
       <Theme>
         <div>
           <h1>Weekly Planner</h1>
-        {sections.map((section) => (
-          <Section key={section.id} section={section} />
-        ))}
-        {/* <button
-          className="new-section"
-          onClick={() => setSections([...sections, { id: Date.now() }])}
-        >
-          New Section
-        </button> */}
-      </div>
+          {sections.map((section) => (
+            <Section key={section.id} section={section} />
+          ))}
+          <button
+            className="new-section"
+            onClick={() => setSections([...sections, { id: Date.now() }])}
+          >
+            New Section
+          </button>
+        </div>
       </Theme>
-    </body>   
+    </div>   
   );
 }
