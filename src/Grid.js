@@ -171,6 +171,38 @@ export default function Grid({
     });
   };
 
+  const handleTouchStart = (index, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Prevent default touch behavior to avoid scrolling
+    const touch = e.touches[0];
+    const element = e.currentTarget;
+    const rect = element.getBoundingClientRect();
+    
+    // Check if this is a tap (not a drag)
+    const touchStartTime = Date.now();
+    const touchStartX = touch.clientX;
+    const touchStartY = touch.clientY;
+    
+    const handleTouchEnd = (e) => {
+      const touchEndTime = Date.now();
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
+      
+      // If it's a short tap (less than 200ms) and small movement (less than 10px)
+      if (touchEndTime - touchStartTime < 200 && 
+          Math.abs(touchEndX - touchStartX) < 10 && 
+          Math.abs(touchEndY - touchStartY) < 10) {
+        handleMouseDown(index);
+      }
+      
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+    
+    document.addEventListener('touchend', handleTouchEnd, { once: true });
+  };
+
   const handleResize = (e, pointInfo) => {
     e.stopPropagation();
     if (!currentBlock.current) return;
@@ -324,6 +356,17 @@ export default function Grid({
                   setSelectedBlockId(block.id);
                 }
               }}
+              onTouchStart={(e) => {
+                if (e.target.tagName !== "INPUT") {
+                  e.preventDefault();
+                  currentBlock.current = {
+                    id: block.id,
+                    columns: [...block.columns],
+                    rows: [...block.rows],
+                  };
+                  setSelectedBlockId(block.id);
+                }
+              }}
               onPanStart={(e) => {
                 setDragging(true);
                 currentBlock.current = {
@@ -411,6 +454,7 @@ export default function Grid({
                 e.preventDefault();
                 handleMouseDown(index);
               }}
+              onTouchStart={(e) => handleTouchStart(index, e)}
               ref={(el) => (columnsRef.current[index] = el)}
               onMouseEnter={() => handleGridEnter(index)}
             ></div>

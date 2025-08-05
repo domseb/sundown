@@ -122,6 +122,11 @@ li {
   pointer-events: auto;
   /* background: #fddbdd; */
   background: var(--crimson-a4);
+  /* Mobile touch improvements */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .block.fit {
@@ -233,6 +238,11 @@ svg {
 .shadow-item {
   cursor: pointer;
   /* background-color: rgba(0, 0, 0, 0.03); */
+  /* Mobile touch improvements */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .shadow-item:nth-child(1):before {
@@ -404,4 +414,47 @@ svg {
   cursor: pointer;
   margin-left: 10px;
   border-radius: 3px;
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 768px) {
+  .section {
+    padding: 16px 16px 64px 16px;
+  }
+  
+  h1 {
+    font-size: 24px;
+    margin-top: 30px;
+  }
+  
+  .shadow-item {
+    min-height: 60px; /* Larger touch targets on mobile */
+  }
+  
+  .block {
+    min-height: 50px; /* Ensure blocks are large enough to touch */
+  }
+  
+  .tools {
+    right: 8px;
+    top: 8px;
+  }
+  
+  .resize {
+    width: 16px;
+    height: 16px;
+    right: -8px;
+    bottom: -8px;
+  }
+  
+  /* Improve touch targets for buttons */
+  .ToggleGroupItem {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .new-section {
+    min-height: 44px;
+    padding: 12px 24px;
+  }
 }
