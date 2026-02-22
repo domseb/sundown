@@ -125,6 +125,21 @@ export default function Grid({
   }, [onBlocksSave]);
 
   useEffect(() => {
+    const getCellIndexAt = (clientX, clientY) => {
+      for (let i = 0; i < columnCount * rowCount; i++) {
+        const el = columnsRef.current[i];
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) return i;
+      }
+      return null;
+    };
+    const indexToColRow = (index) => {
+      const col = (index + 1) % columnCount === 0 ? columnCount : (index + 1) % columnCount;
+      const row = Math.ceil((index + 1) / columnCount);
+      return { col, row };
+    };
+
     const saveNewBlock = (event) => {
       if (newBlockSpan === null || swimlaneRows.length === 0) return;
       let span = newBlockSpan;
@@ -199,7 +214,7 @@ export default function Grid({
     return () => {
       document.removeEventListener("mouseup", onMouseUp);
     };
-  }, [newBlockSpan, blocks, blockTitles, onBlocksSave, swimlaneRows]);
+  }, [newBlockSpan, blocks, blockTitles, onBlocksSave, swimlaneRows, columnCount, rowCount]);
 
   useEffect(() => {
     const handleKeyPress = (event) => {
@@ -251,23 +266,6 @@ export default function Grid({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [selectedBlockId]);
-
-  /** Get 0-based cell index that contains (clientX, clientY), or null */
-  const getCellIndexAt = (clientX, clientY) => {
-    for (let i = 0; i < columnCount * rowCount; i++) {
-      const el = columnsRef.current[i];
-      if (!el) continue;
-      const rect = el.getBoundingClientRect();
-      if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) return i;
-    }
-    return null;
-  };
-
-  const indexToColRow = (index) => {
-    const col = (index + 1) % columnCount === 0 ? columnCount : (index + 1) % columnCount;
-    const row = Math.ceil((index + 1) / columnCount);
-    return { col, row }; // 1-based
-  };
 
   const handleGridEnter = (index) => {
     const colPlace =
