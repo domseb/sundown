@@ -1,6 +1,6 @@
 import "./styles.css";
 import './theme-config.css';
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Grid from "./Grid";
 import Flex from "./Flex";
 import AutoGrid from "./AutoGrid";
@@ -51,7 +51,10 @@ export default function Section({ swimlanes = DEFAULT_SWIMLANES, onSwimlaneChang
   const [snapGrid] = useState(true);
   const [minWidth] = useState(200);
   const columnCount = 5;
-  const { swimlaneRows, rowCount } = buildSwimlaneRows(swimlanes);
+  const { swimlaneRows, rowCount } = useMemo(
+    () => buildSwimlaneRows(swimlanes),
+    [swimlanes]
+  );
 
   const addNewBlock = () => {
     setBlocks((blocks) => [

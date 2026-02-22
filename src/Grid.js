@@ -119,7 +119,9 @@ export default function Grid({
         }
       })
       .catch((error) => console.error("Error loading blocks:", error));
-  }, [onBlocksSave, swimlaneRows]);
+    // Intentionally run only on mount (and when onBlocksSave changes). Re-running when swimlaneRows changes would refetch and overwrite blocks every time user edits swimlanes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onBlocksSave]);
 
   useEffect(() => {
     const saveNewBlock = (event) => {
