@@ -22,14 +22,15 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "craco start",
     "dev": "concurrently \"npm run dev:backend\" \"npm start\"",
     "dev:backend": "cd backend && npm run dev",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "build": "craco build",
+    "test": "craco test",
     "eject": "react-scripts eject"
   },
   "devDependencies": {
+    "@craco/craco": "^7.1.0",
     "concurrently": "^9.1.0"
   },
   "eslintConfig": {

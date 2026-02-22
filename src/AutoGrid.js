@@ -1,5 +1,5 @@
 import "./styles.css";
-import { useState, useEffect, useCallback, useRef } from "react";
+import React from "react";
 import { motion } from "framer-motion";
 import { Reorder, useDragControls } from "framer-motion";
 
