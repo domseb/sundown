@@ -119,7 +119,7 @@ export default function Grid({
         }
       })
       .catch((error) => console.error("Error loading blocks:", error));
-  }, [onBlocksSave]);
+  }, [onBlocksSave, swimlaneRows]);
 
   useEffect(() => {
     const saveNewBlock = (event) => {
@@ -178,7 +178,7 @@ export default function Grid({
       document.removeEventListener("mouseup", saveNewBlock);
       document.removeEventListener("mouseup", saveBlockPositions);
     };
-  }, [newBlockSpan, blocks, blockTitles, onBlocksSave]);
+  }, [newBlockSpan, blocks, blockTitles, onBlocksSave, swimlaneRows]);
 
   useEffect(() => {
     const handleKeyPress = (event) => {
