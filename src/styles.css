@@ -593,7 +593,7 @@ svg {
 /* Mobile-specific improvements */
 @media (max-width: 768px) {
   .section {
-    padding: 16px 16px 64px 16px;
+    padding: 0;
   }
 
   /* One column in view: grid doesn't squish, scroll horizontally for other days */
@@ -640,5 +640,18 @@ svg {
   .new-section {
     min-height: 44px;
     padding: 12px 24px;
+  }
+
+  /* Read-only: no drag/resize/create controls */
+  .grid-readonly .shadow-item {
+    pointer-events: none;
+  }
+
+  .grid-readonly .block .resizer {
+    display: none;
+  }
+
+  .grid-readonly .block {
+    cursor: default;
   }
 }

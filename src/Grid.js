@@ -77,6 +77,16 @@ export default function Grid({
     [blocks]
   );
 
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 768px)").matches : false
+  );
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 768px)");
+    const handler = () => setIsMobile(mql.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+
   useEffect(() => {
     fetchBlocks()
       .then((blocksData) => {
@@ -361,7 +371,7 @@ export default function Grid({
 
   return (
     <div>
-      <div className="container grid-with-labels">
+      <div className={`container grid-with-labels${isMobile ? " grid-readonly" : ""}`}>
         <div
           className="grid-body"
           style={{
@@ -484,13 +494,13 @@ export default function Grid({
                 <div
                   className="shadow-item"
                   key={index}
-                  onMouseDown={(e) => {
+                  onMouseDown={!isMobile ? (e) => {
                     e.preventDefault();
                     handleMouseDown(index);
-                  }}
-                  onTouchStart={(e) => handleTouchStart(index, e)}
+                  } : undefined}
+                  onTouchStart={!isMobile ? (e) => handleTouchStart(index, e) : undefined}
                   ref={(el) => (columnsRef.current[index] = el)}
-                  onMouseEnter={() => handleGridEnter(index)}
+                  onMouseEnter={!isMobile ? () => handleGridEnter(index) : undefined}
                 ></div>
               ))}
             </div>
@@ -543,13 +553,13 @@ export default function Grid({
               style={{
                 gridColumn: block.columns.join("/"),
                 gridRow: block.rows.join("/"),
-                cursor: dragging ? "grabbing" : "grab",
+                cursor: isMobile ? "default" : dragging ? "grabbing" : "grab",
                 backgroundColor: block.color || DEFAULT_BLOCK_COLOR,
                 "--block-accent": block.color || DEFAULT_BLOCK_COLOR,
                 "--block-accent-ring": blockAccentToA7(block.color || DEFAULT_BLOCK_COLOR),
               }}
               ref={(el) => (blocksRef.current[block.id] = el)}
-              onMouseDown={(e) => {
+              onMouseDown={!isMobile ? (e) => {
                 if (e.target.tagName !== "INPUT") {
                   currentBlock.current = {
                     id: block.id,
@@ -558,8 +568,8 @@ export default function Grid({
                   };
                   setSelectedBlockId(block.id);
                 }
-              }}
-              onTouchStart={(e) => {
+              } : undefined}
+              onTouchStart={!isMobile ? (e) => {
                 if (e.target.tagName !== "INPUT") {
                   e.preventDefault();
                   currentBlock.current = {
@@ -569,16 +579,16 @@ export default function Grid({
                   };
                   setSelectedBlockId(block.id);
                 }
-              }}
-              onPanStart={(e) => {
+              } : undefined}
+              onPanStart={!isMobile ? (e) => {
                 setDragging(true);
                 currentBlock.current = {
                   id: block.id,
                   columns: [...block.columns],
                   rows: [...block.rows],
                 };
-              }}
-              onPanEnd={() => {
+              } : undefined}
+              onPanEnd={!isMobile ? () => {
                 setDragging(false);
                 if (currentBlock.current) {
                   const updated = blocks.map((b) =>
@@ -592,8 +602,8 @@ export default function Grid({
                   );
                 }
                 currentBlock.current = null;
-              }}
-              onPan={handleDrag}
+              } : undefined}
+              onPan={!isMobile ? handleDrag : undefined}
             >
               <div className="block-title-wrap">
                 <TextField.Input
@@ -603,6 +613,7 @@ export default function Grid({
                   onBlur={() => handleTitleBlur(block.id)}
                   autoFocus={block.id === newBlockSpan?.id}
                   onFocus={(e) => e.stopPropagation()}
+                  readOnly={isMobile}
                 />
               </div>
 
@@ -628,15 +639,15 @@ export default function Grid({
                 </div>
                 <motion.div
                   className="resize resize-left"
-                  onPanStart={(e) => {
+                  onPanStart={!isMobile ? (e) => {
                     setResizing(true);
                     currentBlock.current = {
                       id: block.id,
                       columns: [...block.columns],
                       rows: [...block.rows],
                     };
-                  }}
-                  onPanEnd={() => {
+                  } : undefined}
+                  onPanEnd={!isMobile ? () => {
                     setResizing(false);
                     if (currentBlock.current) {
                       const updated = blocks.map((b) =>
@@ -650,8 +661,8 @@ export default function Grid({
                       );
                     }
                     currentBlock.current = null;
-                  }}
-                  onPan={handleResize}
+                  } : undefined}
+                  onPan={!isMobile ? handleResize : undefined}
                 />
               </motion.div>
             </motion.div>
