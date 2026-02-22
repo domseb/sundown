@@ -4,6 +4,7 @@ import { Theme, Dialog, IconButton, Button, TextField } from '@radix-ui/themes';
 import { useState } from "react";
 import { GearIcon, PlusIcon, TrashIcon } from "@radix-ui/react-icons";
 import Section from "./Section";
+import SundownLogo from "./sundown-logo.svg";
 
 const DEFAULT_SWIMLANES = [
   { id: 'sl-1', start: '05:00', end: '07:00' },
@@ -39,15 +40,17 @@ export default function App() {
       <Theme>
         <div className="app-layout">
           <header className="app-header">
-            <h1>Weekly Planner</h1>
-            <IconButton
-              size="3"
-              variant="ghost"
-              onClick={() => setSettingsOpen(true)}
-              aria-label="Configure swimlanes"
-            >
-              <GearIcon width="20" height="20" />
-            </IconButton>
+            <img src={SundownLogo} alt="Sundown" className="app-logo" />
+            <div className="app-header-settings">
+              <IconButton
+                size="3"
+                variant="ghost"
+                onClick={() => setSettingsOpen(true)}
+                aria-label="Configure swimlanes"
+              >
+                <GearIcon width="20" height="20" />
+              </IconButton>
+            </div>
           </header>
 
           <Section swimlanes={swimlanes} onSwimlaneChange={updateSwimlane} />

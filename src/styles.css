@@ -62,10 +62,18 @@ body {
 .app-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  position: relative;
   padding: 32px 32px 0;
   max-width: 1280px;
   margin: 0 auto;
+}
+
+.app-header .app-header-settings {
+  position: absolute;
+  right: 32px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .app-header h1 {
@@ -73,6 +81,12 @@ body {
   font-family: "Acma";
   font-weight: 300;
   font-size: 32px;
+}
+
+.app-logo {
+  height: 28px;
+  width: auto;
+  display: block;
 }
 
 .column-title {
