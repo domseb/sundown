@@ -1,11 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://gwxvhmayyrbovijtrwpa.supabase.co';
-const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3eHZobWF5eXJib3ZpanRyd3BhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyMTg3ODQsImV4cCI6MjA2OTc5NDc4NH0.m1zKMltW9ZQmpuINM0g_vgUp4IWbYKWhq9SPl_Wd0RY';
+// Set in .env.local (dev) and in Vercel Project Settings → Environment Variables (production)
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+if (!supabaseUrl || !supabaseKey) {
+  console.error(
+    'Missing Supabase config. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY in .env.local or in Vercel Environment Variables.'
+  );
+}
+
+const supabase =
+  supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 export const fetchBlocks = async () => {
+  if (!supabase) {
+    throw new Error('Supabase is not configured');
+  }
   try {
     const { data, error } = await supabase
       .from('blocks')
@@ -21,6 +32,9 @@ export const fetchBlocks = async () => {
 };
 
 export const saveBlocks = async (blocks) => {
+  if (!supabase) {
+    throw new Error('Supabase is not configured');
+  }
   try {
     // First, delete all existing blocks
     const { error: deleteError } = await supabase
@@ -47,6 +61,9 @@ export const saveBlocks = async (blocks) => {
 };
 
 export const deleteBlock = async (id) => {
+  if (!supabase) {
+    throw new Error('Supabase is not configured');
+  }
   try {
     const { error } = await supabase
       .from('blocks')
