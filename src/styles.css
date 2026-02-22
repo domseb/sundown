@@ -155,8 +155,9 @@ body {
 }
 
 /* Shared boundary: number sits on the dividing line between swimlanes */
+/* --row-gap is set on .grid-body in Grid.js; no fallback here to avoid postcss-calc parse errors */
 .row-label-boundary {
-  transform: translateY(calc(var(--row-gap, 9px) / 2));
+  transform: translateY(calc(var(--row-gap) / 2));
 }
 
 .row-label-edit {
