@@ -4,18 +4,13 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error(
-    'Missing Supabase config. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY in .env.local or in Vercel Environment Variables.'
-  );
-}
-
+// For persistence, set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY in .env.local (dev) or Vercel env (production). Restart dev server after changing .env.
 const supabase =
   supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 export const fetchBlocks = async () => {
   if (!supabase) {
-    throw new Error('Supabase is not configured');
+    return [];
   }
   try {
     const { data, error } = await supabase
@@ -33,7 +28,7 @@ export const fetchBlocks = async () => {
 
 export const saveBlocks = async (blocks) => {
   if (!supabase) {
-    throw new Error('Supabase is not configured');
+    return { success: true };
   }
   try {
     // First, delete all existing blocks
@@ -44,23 +39,11 @@ export const saveBlocks = async (blocks) => {
 
     if (deleteError) throw deleteError;
 
-    // Then insert all new blocks (omit .rows so DB uses default; Supabase accepts known columns)
+    // Then insert all blocks
     if (blocks.length > 0) {
-      const rows = blocks.map((b) => {
-        const { rows: _rows, ...rest } = b;
-        return {
-          id: b.id,
-          title: rest.title ?? '',
-          color: rest.color ?? 'var(--crimson-4)',
-          columns: Array.isArray(b.columns) ? b.columns : [1, 2],
-          widthType: rest.widthType ?? 'fill',
-          startTime: rest.startTime ?? '09:00',
-          endTime: rest.endTime ?? '10:00',
-        };
-      });
       const { error: insertError } = await supabase
         .from('blocks')
-        .insert(rows);
+        .insert(blocks);
 
       if (insertError) throw insertError;
     }
@@ -74,7 +57,7 @@ export const saveBlocks = async (blocks) => {
 
 export const deleteBlock = async (id) => {
   if (!supabase) {
-    throw new Error('Supabase is not configured');
+    return { success: true };
   }
   try {
     const { error } = await supabase

@@ -5,11 +5,6 @@ import { TextField, IconButton } from "@radix-ui/themes";
 import { fetchBlocks, saveBlocks, deleteBlock } from "./Api";
 import { v4 as uuidv4 } from "uuid";
 import { TrashIcon } from "@radix-ui/react-icons";
-import {
-  blockWithRowsForGrid,
-  blockToTimeFormat,
-  blockRowsToTime,
-} from "./blockTimeUtils";
 
 const RADIX_BLOCK_COLORS = [
   "var(--crimson-4)",
@@ -43,23 +38,6 @@ function swimlaneHourNumber(t) {
   return h - 12;
 }
 
-/** Convert blocks (may have .rows from drag/resize) to time-based for saving */
-function toTimeBasedBlocks(blocksList, swimlaneRows) {
-  if (!swimlaneRows.length) return blocksList;
-  return blocksList.map((b) => {
-    const normalized = blockToTimeFormat(b, swimlaneRows);
-    const hasRows = b.rows && b.rows.length >= 2;
-    const time = hasRows
-      ? blockRowsToTime(b.rows, swimlaneRows)
-      : {
-          startTime: normalized.startTime,
-          endTime: normalized.endTime,
-        };
-    const { rows, ...rest } = normalized;
-    return { ...rest, ...time };
-  });
-}
-
 export default function Grid({
   onBlocksSave,
   blocks,
@@ -83,13 +61,11 @@ export default function Grid({
   const blocksRef = useRef([]);
   const columnsRef = useRef([]);
   const [newBlockSpan, setNewBlockSpan] = useState(null);
-  const pendingNewBlockRef = useRef(null); // set on mousedown so mouseup can save even before state commits
   const [selectedBlockId, setSelectedBlockId] = useState(null);
   const [editingSwimlaneId, setEditingSwimlaneId] = useState(null);
   const [colorPickerOpen, setColorPickerOpen] = useState({ blockId: null, top: 0, left: 0 });
   const colorPickerRef = useRef(null);
   const currentBlock = useRef(null);
-  const hasMovedBlock = useRef(false); // true only after actual drag/resize, so click doesn't trigger save
   const [, setResizing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [blockTitles, setBlockTitles] = useState({});
@@ -97,8 +73,8 @@ export default function Grid({
   const DEFAULT_BLOCK_COLOR = "var(--crimson-4)";
 
   const displayBlocks = useMemo(
-    () => blocks.map((b) => blockWithRowsForGrid(b, swimlaneRows)),
-    [blocks, swimlaneRows]
+    () => blocks.map((b) => ({ ...b, rows: b.rows || [1, 2] })),
+    [blocks]
   );
 
   useEffect(() => {
@@ -109,115 +85,59 @@ export default function Grid({
           titles[block.id] = block.title || "";
         });
         setBlockTitles(titles);
-        const migrated = blocksData.map((b) => blockToTimeFormat(b, swimlaneRows));
-        onBlocksSave(migrated);
-        const hadLegacyRows = blocksData.some(
-          (b) => b.rows && b.rows.length >= 2 && (b.startTime == null || b.endTime == null)
-        );
-        if (hadLegacyRows) {
-          saveBlocks(migrated).catch((e) =>
-            console.error("Error persisting migrated blocks:", e)
-          );
-        }
+        onBlocksSave(blocksData || []);
       })
       .catch((error) => console.error("Error loading blocks:", error));
-    // Intentionally run only on mount (and when onBlocksSave changes). Re-running when swimlaneRows changes would refetch and overwrite blocks every time user edits swimlanes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onBlocksSave]);
 
   useEffect(() => {
-    const getCellIndexAt = (clientX, clientY) => {
-      for (let i = 0; i < columnCount * rowCount; i++) {
-        const el = columnsRef.current[i];
-        if (!el) continue;
-        const rect = el.getBoundingClientRect();
-        if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) return i;
-      }
-      return null;
-    };
-    const indexToColRow = (index) => {
-      const col = (index + 1) % columnCount === 0 ? columnCount : (index + 1) % columnCount;
-      const row = Math.ceil((index + 1) / columnCount);
-      return { col, row };
-    };
-
-    const saveNewBlock = (event) => {
-      const spanToSave = newBlockSpan ?? pendingNewBlockRef.current;
-      if (spanToSave === null || swimlaneRows.length === 0) return;
-      pendingNewBlockRef.current = null;
-      let span = spanToSave;
-      if (event && event.clientX != null) {
-        const releaseIndex = getCellIndexAt(event.clientX, event.clientY);
-        if (releaseIndex != null) {
-          const { col, row } = indexToColRow(releaseIndex);
-          span = {
-            ...spanToSave,
-            columns: [
-              Math.min(spanToSave.columns[0], col),
-              Math.max(spanToSave.columns[1], col),
-            ],
-            rows: [
-              Math.min(spanToSave.rows[0], row),
-              Math.max(spanToSave.rows[1], row),
-            ],
-          };
-        }
-      }
-      const { startTime, endTime } = blockRowsToTime(span.rows, swimlaneRows);
+    const saveNewBlock = () => {
+      if (newBlockSpan === null) return;
       const newBlock = {
-        ...span,
-        title: blockTitles[span.id] || "",
-        color: span.color || DEFAULT_BLOCK_COLOR,
-        startTime,
-        endTime,
+        ...newBlockSpan,
+        title: blockTitles[newBlockSpan.id] || "",
       };
-      delete newBlock.rows;
-      const toSave = [...blocks, newBlock];
-      onBlocksSave((prev) => [...prev, newBlock]);
+      onBlocksSave((blocks) => {
+        const newBlocks = [...blocks, newBlock];
+        saveBlocks(newBlocks)
+          .then(() => {
+            console.log("Blocks saved successfully");
+          })
+          .catch((error) => {
+            console.error("Error saving blocks:", error);
+          });
+        return newBlocks;
+      });
       setNewBlockSpan(null);
-      saveBlocks(toSave)
-        .then(() => {
-          console.log("Blocks saved successfully");
-        })
-        .catch((error) => {
-          console.error("Error saving blocks:", error);
-        });
     };
 
     const saveBlockPositions = () => {
-      if (!hasMovedBlock.current || !currentBlock.current || swimlaneRows.length === 0) return;
-      const existingBlock = blocks.find((b) => b.id === currentBlock.current.id);
-      if (!existingBlock) return;
-      const updatedBlocks = blocks.map((block) =>
-        block.id === currentBlock.current.id
-          ? { ...existingBlock, ...currentBlock.current }
-          : block
-      );
-      const toSave = toTimeBasedBlocks(updatedBlocks, swimlaneRows);
-      onBlocksSave(toSave);
-      saveBlocks(toSave)
-        .then(() => {
-          console.log("Blocks saved successfully after drag/resize");
-        })
-        .catch((error) => {
-          console.error("Error saving blocks after drag/resize:", error);
-        });
-      currentBlock.current = null;
-      hasMovedBlock.current = false;
+      if (currentBlock.current) {
+        const updatedBlocks = blocks.map((block) =>
+          block.id === currentBlock.current.id
+            ? { ...currentBlock.current }
+            : block
+        );
+        onBlocksSave(updatedBlocks);
+        saveBlocks(updatedBlocks)
+          .then(() => {
+            console.log("Blocks saved successfully after drag/resize");
+          })
+          .catch((error) => {
+            console.error("Error saving blocks after drag/resize:", error);
+          });
+        currentBlock.current = null;
+      }
     };
 
-    const onMouseUp = (e) => {
-      saveNewBlock(e);
-      saveBlockPositions();
-      hasMovedBlock.current = false;
-    };
-
-    document.addEventListener("mouseup", onMouseUp);
+    document.addEventListener("mouseup", saveNewBlock);
+    document.addEventListener("mouseup", saveBlockPositions);
 
     return () => {
-      document.removeEventListener("mouseup", onMouseUp);
+      document.removeEventListener("mouseup", saveNewBlock);
+      document.removeEventListener("mouseup", saveBlockPositions);
     };
-  }, [newBlockSpan, blocks, blockTitles, onBlocksSave, swimlaneRows, columnCount, rowCount]);
+  }, [newBlockSpan, blocks, blockTitles, onBlocksSave]);
 
   useEffect(() => {
     const handleKeyPress = (event) => {
@@ -274,13 +194,11 @@ export default function Grid({
     const colPlace =
       (index + 1) % columnCount === 0 ? columnCount : (index + 1) % columnCount;
     const rowPlace = Math.ceil((index + 1) / columnCount);
-    const currentSpan = newBlockSpan ?? pendingNewBlockRef.current;
-    if (currentSpan) {
-      const next = { ...currentSpan };
-      next.columns[1] = colPlace + 1;
-      next.rows[1] = rowPlace + 1;
-      pendingNewBlockRef.current = next;
-      setNewBlockSpan(next);
+    if (newBlockSpan) {
+      const newBlock = { ...newBlockSpan };
+      newBlock.columns[1] = colPlace + 1;
+      newBlock.rows[1] = rowPlace + 1;
+      setNewBlockSpan(newBlock);
     }
   };
 
@@ -289,7 +207,7 @@ export default function Grid({
       (index + 1) % columnCount === 0
         ? parseInt(columnCount)
         : (index + 1) % columnCount;
-    const span = {
+    setNewBlockSpan({
       id: uuidv4(),
       columns: [col, col + 1],
       widthType: "fill",
@@ -298,9 +216,7 @@ export default function Grid({
         Math.ceil((index + 1) / columnCount) + 1,
       ],
       color: lastBlockColor || DEFAULT_BLOCK_COLOR,
-    };
-    pendingNewBlockRef.current = span;
-    setNewBlockSpan(span);
+    });
   };
 
   const handleTouchStart = (index, e) => {
@@ -336,8 +252,6 @@ export default function Grid({
   const handleResize = (e, pointInfo) => {
     e.stopPropagation();
     if (!currentBlock.current) return;
-
-    hasMovedBlock.current = true;
     const colWidth = columnsRef.current[0].getBoundingClientRect().width;
     const updatedBlocks = [...blocks];
     const updatedBlock = updatedBlocks.find(
@@ -352,16 +266,13 @@ export default function Grid({
       currentBlock.current.rows[1] +
       Math.round(pointInfo.offset.y / (height + gap));
 
-    if (swimlaneRows.length > 0) {
-      onBlocksSave(toTimeBasedBlocks(updatedBlocks, swimlaneRows));
-    }
+    onBlocksSave(updatedBlocks);
     setResizing(true);
   };
 
   const handleDrag = (e, pointInfo) => {
     if (!currentBlock.current) return;
 
-    hasMovedBlock.current = true;
     const colWidth = columnsRef.current[0].getBoundingClientRect().width;
     const updatedBlocks = [...blocks];
     const updatedBlock = updatedBlocks.find(
@@ -382,9 +293,7 @@ export default function Grid({
       currentBlock.current.rows[1] +
       Math.round(pointInfo.offset.y / (height + gap));
 
-    if (swimlaneRows.length > 0) {
-      onBlocksSave(toTimeBasedBlocks(updatedBlocks, swimlaneRows));
-    }
+    onBlocksSave(updatedBlocks);
     setDragging(true);
   };
 
@@ -675,20 +584,16 @@ export default function Grid({
               }}
               onPanEnd={() => {
                 setDragging(false);
-                if (currentBlock.current && swimlaneRows.length > 0) {
-                  const existing = blocks.find((b) => b.id === currentBlock.current.id);
-                  if (existing) {
-                    const updated = blocks.map((b) =>
-                      b.id === currentBlock.current.id
-                        ? { ...existing, ...currentBlock.current }
-                        : b
-                    );
-                    const toSave = toTimeBasedBlocks(updated, swimlaneRows);
-                    onBlocksSave(toSave);
-                    saveBlocks(toSave).catch((e) =>
-                      console.error("Error saving blocks after drag:", e)
-                    );
-                  }
+                if (currentBlock.current) {
+                  const updated = blocks.map((b) =>
+                    b.id === currentBlock.current.id
+                      ? { ...currentBlock.current }
+                      : b
+                  );
+                  onBlocksSave(updated);
+                  saveBlocks(updated).catch((e) =>
+                    console.error("Error saving blocks after drag:", e)
+                  );
                 }
                 currentBlock.current = null;
               }}
@@ -737,20 +642,16 @@ export default function Grid({
                   }}
                   onPanEnd={() => {
                     setResizing(false);
-                    if (currentBlock.current && swimlaneRows.length > 0) {
-                      const existing = blocks.find((b) => b.id === currentBlock.current.id);
-                      if (existing) {
-                        const updated = blocks.map((b) =>
-                          b.id === currentBlock.current.id
-                            ? { ...existing, ...currentBlock.current }
-                            : b
-                        );
-                        const toSave = toTimeBasedBlocks(updated, swimlaneRows);
-                        onBlocksSave(toSave);
-                        saveBlocks(toSave).catch((e) =>
-                          console.error("Error saving blocks after resize:", e)
-                        );
-                      }
+                    if (currentBlock.current) {
+                      const updated = blocks.map((b) =>
+                        b.id === currentBlock.current.id
+                          ? { ...currentBlock.current }
+                          : b
+                      );
+                      onBlocksSave(updated);
+                      saveBlocks(updated).catch((e) =>
+                        console.error("Error saving blocks after resize:", e)
+                      );
                     }
                     currentBlock.current = null;
                   }}
