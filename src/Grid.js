@@ -88,6 +88,7 @@ export default function Grid({
   const [colorPickerOpen, setColorPickerOpen] = useState({ blockId: null, top: 0, left: 0 });
   const colorPickerRef = useRef(null);
   const currentBlock = useRef(null);
+  const hasMovedBlock = useRef(false); // true only after actual drag/resize, so click doesn't trigger save
   const [, setResizing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [blockTitles, setBlockTitles] = useState({});
@@ -154,31 +155,37 @@ export default function Grid({
     };
 
     const saveBlockPositions = () => {
-      if (currentBlock.current && swimlaneRows.length > 0) {
-        const updatedBlocks = blocks.map((block) =>
-          block.id === currentBlock.current.id
-            ? { ...currentBlock.current }
-            : block
-        );
-        const toSave = toTimeBasedBlocks(updatedBlocks, swimlaneRows);
-        onBlocksSave(toSave);
-        saveBlocks(toSave)
-          .then(() => {
-            console.log("Blocks saved successfully after drag/resize");
-          })
-          .catch((error) => {
-            console.error("Error saving blocks after drag/resize:", error);
-          });
-        currentBlock.current = null;
-      }
+      if (!hasMovedBlock.current || !currentBlock.current || swimlaneRows.length === 0) return;
+      const existingBlock = blocks.find((b) => b.id === currentBlock.current.id);
+      if (!existingBlock) return;
+      const updatedBlocks = blocks.map((block) =>
+        block.id === currentBlock.current.id
+          ? { ...existingBlock, ...currentBlock.current }
+          : block
+      );
+      const toSave = toTimeBasedBlocks(updatedBlocks, swimlaneRows);
+      onBlocksSave(toSave);
+      saveBlocks(toSave)
+        .then(() => {
+          console.log("Blocks saved successfully after drag/resize");
+        })
+        .catch((error) => {
+          console.error("Error saving blocks after drag/resize:", error);
+        });
+      currentBlock.current = null;
+      hasMovedBlock.current = false;
     };
 
-    document.addEventListener("mouseup", saveNewBlock);
-    document.addEventListener("mouseup", saveBlockPositions);
+    const onMouseUp = () => {
+      saveNewBlock();
+      saveBlockPositions();
+      hasMovedBlock.current = false;
+    };
+
+    document.addEventListener("mouseup", onMouseUp);
 
     return () => {
-      document.removeEventListener("mouseup", saveNewBlock);
-      document.removeEventListener("mouseup", saveBlockPositions);
+      document.removeEventListener("mouseup", onMouseUp);
     };
   }, [newBlockSpan, blocks, blockTitles, onBlocksSave, swimlaneRows]);
 
@@ -295,6 +302,8 @@ export default function Grid({
   const handleResize = (e, pointInfo) => {
     e.stopPropagation();
     if (!currentBlock.current) return;
+
+    hasMovedBlock.current = true;
     const colWidth = columnsRef.current[0].getBoundingClientRect().width;
     const updatedBlocks = [...blocks];
     const updatedBlock = updatedBlocks.find(
@@ -318,6 +327,7 @@ export default function Grid({
   const handleDrag = (e, pointInfo) => {
     if (!currentBlock.current) return;
 
+    hasMovedBlock.current = true;
     const colWidth = columnsRef.current[0].getBoundingClientRect().width;
     const updatedBlocks = [...blocks];
     const updatedBlock = updatedBlocks.find(
@@ -632,16 +642,19 @@ export default function Grid({
               onPanEnd={() => {
                 setDragging(false);
                 if (currentBlock.current && swimlaneRows.length > 0) {
-                  const updated = blocks.map((b) =>
-                    b.id === currentBlock.current.id
-                      ? { ...currentBlock.current }
-                      : b
-                  );
-                  const toSave = toTimeBasedBlocks(updated, swimlaneRows);
-                  onBlocksSave(toSave);
-                  saveBlocks(toSave).catch((e) =>
-                    console.error("Error saving blocks after drag:", e)
-                  );
+                  const existing = blocks.find((b) => b.id === currentBlock.current.id);
+                  if (existing) {
+                    const updated = blocks.map((b) =>
+                      b.id === currentBlock.current.id
+                        ? { ...existing, ...currentBlock.current }
+                        : b
+                    );
+                    const toSave = toTimeBasedBlocks(updated, swimlaneRows);
+                    onBlocksSave(toSave);
+                    saveBlocks(toSave).catch((e) =>
+                      console.error("Error saving blocks after drag:", e)
+                    );
+                  }
                 }
                 currentBlock.current = null;
               }}
@@ -691,16 +704,19 @@ export default function Grid({
                   onPanEnd={() => {
                     setResizing(false);
                     if (currentBlock.current && swimlaneRows.length > 0) {
-                      const updated = blocks.map((b) =>
-                        b.id === currentBlock.current.id
-                          ? { ...currentBlock.current }
-                          : b
-                      );
-                      const toSave = toTimeBasedBlocks(updated, swimlaneRows);
-                      onBlocksSave(toSave);
-                      saveBlocks(toSave).catch((e) =>
-                        console.error("Error saving blocks after resize:", e)
-                      );
+                      const existing = blocks.find((b) => b.id === currentBlock.current.id);
+                      if (existing) {
+                        const updated = blocks.map((b) =>
+                          b.id === currentBlock.current.id
+                            ? { ...existing, ...currentBlock.current }
+                            : b
+                        );
+                        const toSave = toTimeBasedBlocks(updated, swimlaneRows);
+                        onBlocksSave(toSave);
+                        saveBlocks(toSave).catch((e) =>
+                          console.error("Error saving blocks after resize:", e)
+                        );
+                      }
                     }
                     currentBlock.current = null;
                   }}
