@@ -1,10 +1,15 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { TextField, IconButton } from "@radix-ui/themes";
 import { fetchBlocks, saveBlocks, deleteBlock } from "./Api";
 import { v4 as uuidv4 } from "uuid";
 import { TrashIcon } from "@radix-ui/react-icons";
+import {
+  blockWithRowsForGrid,
+  blockToTimeFormat,
+  blockRowsToTime,
+} from "./blockTimeUtils";
 
 const RADIX_BLOCK_COLORS = [
   "var(--crimson-4)",
@@ -29,6 +34,23 @@ function swimlaneHourNumber(t) {
   if (h === 0) return 12;
   if (h <= 12) return h;
   return h - 12;
+}
+
+/** Convert blocks (may have .rows from drag/resize) to time-based for saving */
+function toTimeBasedBlocks(blocksList, swimlaneRows) {
+  if (!swimlaneRows.length) return blocksList;
+  return blocksList.map((b) => {
+    const normalized = blockToTimeFormat(b, swimlaneRows);
+    const hasRows = b.rows && b.rows.length >= 2;
+    const time = hasRows
+      ? blockRowsToTime(b.rows, swimlaneRows)
+      : {
+          startTime: normalized.startTime,
+          endTime: normalized.endTime,
+        };
+    const { rows, ...rest } = normalized;
+    return { ...rest, ...time };
+  });
 }
 
 export default function Grid({
@@ -65,6 +87,11 @@ export default function Grid({
   const daysOfWeek = ["M", "T", "W", "T", "F"];
   const DEFAULT_BLOCK_COLOR = "var(--crimson-4)";
 
+  const displayBlocks = useMemo(
+    () => blocks.map((b) => blockWithRowsForGrid(b, swimlaneRows)),
+    [blocks, swimlaneRows]
+  );
+
   useEffect(() => {
     fetchBlocks()
       .then((blocksData) => {
@@ -73,23 +100,37 @@ export default function Grid({
           titles[block.id] = block.title || "";
         });
         setBlockTitles(titles);
-        onBlocksSave(blocksData);
+        const migrated = blocksData.map((b) => blockToTimeFormat(b, swimlaneRows));
+        onBlocksSave(migrated);
+        const hadLegacyRows = blocksData.some(
+          (b) => b.rows && b.rows.length >= 2 && (b.startTime == null || b.endTime == null)
+        );
+        if (hadLegacyRows) {
+          saveBlocks(migrated).catch((e) =>
+            console.error("Error persisting migrated blocks:", e)
+          );
+        }
       })
       .catch((error) => console.error("Error loading blocks:", error));
   }, [onBlocksSave]);
 
   useEffect(() => {
     const saveNewBlock = (event) => {
-      if (newBlockSpan !== null) {
+      if (newBlockSpan !== null && swimlaneRows.length > 0) {
+        const { startTime, endTime } = blockRowsToTime(
+          newBlockSpan.rows,
+          swimlaneRows
+        );
+        const newBlock = {
+          ...newBlockSpan,
+          title: blockTitles[newBlockSpan.id] || "",
+          color: newBlockSpan.color || DEFAULT_BLOCK_COLOR,
+          startTime,
+          endTime,
+        };
+        delete newBlock.rows;
         onBlocksSave((blocks) => {
-          const newBlocks = [
-            ...blocks,
-            {
-              ...newBlockSpan,
-              title: blockTitles[newBlockSpan.id] || "",
-              color: newBlockSpan.color || DEFAULT_BLOCK_COLOR,
-            },
-          ];
+          const newBlocks = [...blocks, newBlock];
           saveBlocks(newBlocks)
             .then(() => {
               console.log("Blocks saved successfully");
@@ -104,13 +145,15 @@ export default function Grid({
     };
 
     const saveBlockPositions = () => {
-      if (currentBlock.current) {
+      if (currentBlock.current && swimlaneRows.length > 0) {
         const updatedBlocks = blocks.map((block) =>
           block.id === currentBlock.current.id
             ? { ...currentBlock.current }
             : block
         );
-        saveBlocks(updatedBlocks)
+        const toSave = toTimeBasedBlocks(updatedBlocks, swimlaneRows);
+        onBlocksSave(toSave);
+        saveBlocks(toSave)
           .then(() => {
             console.log("Blocks saved successfully after drag/resize");
           })
@@ -257,7 +300,9 @@ export default function Grid({
       currentBlock.current.rows[1] +
       Math.round(pointInfo.offset.y / (height + gap));
 
-    onBlocksSave(updatedBlocks);
+    if (swimlaneRows.length > 0) {
+      onBlocksSave(toTimeBasedBlocks(updatedBlocks, swimlaneRows));
+    }
     setResizing(true);
   };
 
@@ -284,7 +329,9 @@ export default function Grid({
       currentBlock.current.rows[1] +
       Math.round(pointInfo.offset.y / (height + gap));
 
-    onBlocksSave(updatedBlocks);
+    if (swimlaneRows.length > 0) {
+      onBlocksSave(toTimeBasedBlocks(updatedBlocks, swimlaneRows));
+    }
     setDragging(true);
   };
 
@@ -524,7 +571,7 @@ export default function Grid({
               }}
               className="grid"
             >
-          {blocks.map((block, index) => (
+          {displayBlocks.map((block, index) => (
             <motion.div
               key={index}
               tabIndex={0}
@@ -574,13 +621,18 @@ export default function Grid({
               }}
               onPanEnd={() => {
                 setDragging(false);
-                saveBlocks(blocks)
-                  .then(() => {
-                    console.log("Blocks saved successfully after drag");
-                  })
-                  .catch((error) => {
-                    console.error("Error saving blocks after drag:", error);
-                  });
+                if (currentBlock.current && swimlaneRows.length > 0) {
+                  const updated = blocks.map((b) =>
+                    b.id === currentBlock.current.id
+                      ? { ...currentBlock.current }
+                      : b
+                  );
+                  const toSave = toTimeBasedBlocks(updated, swimlaneRows);
+                  onBlocksSave(toSave);
+                  saveBlocks(toSave).catch((e) =>
+                    console.error("Error saving blocks after drag:", e)
+                  );
+                }
                 currentBlock.current = null;
               }}
               onPan={handleDrag}
@@ -628,16 +680,18 @@ export default function Grid({
                   }}
                   onPanEnd={() => {
                     setResizing(false);
-                    saveBlocks(blocks)
-                      .then(() => {
-                        console.log("Blocks saved successfully after resize");
-                      })
-                      .catch((error) => {
-                        console.error(
-                          "Error saving blocks after resize:",
-                          error
-                        );
-                      });
+                    if (currentBlock.current && swimlaneRows.length > 0) {
+                      const updated = blocks.map((b) =>
+                        b.id === currentBlock.current.id
+                          ? { ...currentBlock.current }
+                          : b
+                      );
+                      const toSave = toTimeBasedBlocks(updated, swimlaneRows);
+                      onBlocksSave(toSave);
+                      saveBlocks(toSave).catch((e) =>
+                        console.error("Error saving blocks after resize:", e)
+                      );
+                    }
                     currentBlock.current = null;
                   }}
                   onPan={handleResize}

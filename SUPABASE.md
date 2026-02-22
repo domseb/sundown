@@ -20,10 +20,16 @@ create table if not exists public.blocks (
   title text default '',
   color text default 'var(--crimson-4)',
   "columns" int[] not null default '{1, 2}',
-  "rows" int[] not null default '{1, 2}',
+  "rows" int[] default '{1, 2}',
   "widthType" text default 'fill',
+  "startTime" text default '09:00',
+  "endTime" text default '10:00',
   created_at timestamptz default now()
 );
+
+-- If the table already exists, add time columns so block positions adapt when you change rows:
+-- alter table public.blocks add column if not exists "startTime" text default '09:00';
+-- alter table public.blocks add column if not exists "endTime" text default '10:00';
 
 -- Optional: enable Row Level Security (RLS) and allow anonymous read/write for the demo.
 -- For production, replace with proper auth policies.
