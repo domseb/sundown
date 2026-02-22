@@ -67,3 +67,28 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). Blocks will be loaded from and saved to your Supabase `blocks` table.
+
+---
+
+## Deploying to Vercel (blocks not loading / “access control checks”)
+
+If blocks don’t load in production and you see **“Fetch API cannot load … due to access control checks”** or **“Load failed”**:
+
+### 1. Use the correct env var names in Vercel
+
+Create React App only exposes variables that start with **`REACT_APP_`**. In Vercel → your project → **Settings** → **Environment Variables**, set:
+
+- **`REACT_APP_SUPABASE_URL`** = your Supabase project URL (e.g. `https://xxxx.supabase.co`)
+- **`REACT_APP_SUPABASE_ANON_KEY`** = your Supabase **anon public** key (from Supabase → Project Settings → API)
+
+Do **not** use `SUPABASE_URL` / `SUPABASE_ANON_KEY` alone; the React build will not see them and the app will fail to call Supabase.
+
+Redeploy after changing env vars.
+
+### 2. Allow your site in Supabase (if restricted)
+
+In Supabase → **Project Settings** → **API**, check **“Restrict API requests to allowed origins”**. If it’s enabled, add your Vercel URL (e.g. `https://your-app.vercel.app`).
+
+### 3. RLS on `blocks`
+
+Ensure the `blocks` table has an RLS policy that allows anonymous read/write, as in step 2 (e.g. `using (true)` and `with check (true)` for the anon role). Otherwise the API will reject requests and the browser may report it as an access control error.
