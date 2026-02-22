@@ -59,7 +59,7 @@ export default function Grid({
   const [colorPickerOpen, setColorPickerOpen] = useState({ blockId: null, top: 0, left: 0 });
   const colorPickerRef = useRef(null);
   const currentBlock = useRef(null);
-  const [resizing, setResizing] = useState(false);
+  const [, setResizing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [blockTitles, setBlockTitles] = useState({});
   const daysOfWeek = ["M", "T", "W", "T", "F"];
@@ -216,9 +216,7 @@ export default function Grid({
     
     // Prevent default touch behavior to avoid scrolling
     const touch = e.touches[0];
-    const element = e.currentTarget;
-    const rect = element.getBoundingClientRect();
-    
+
     // Check if this is a tap (not a drag)
     const touchStartTime = Date.now();
     const touchStartX = touch.clientX;
@@ -364,7 +362,7 @@ export default function Grid({
           style={{
             display: "grid",
             gap: gap,
-            ["--row-gap"]: `${gap}px`,
+            "--row-gap": `${gap}px`,
             gridTemplateColumns: `40px repeat( ${columnCount}, minmax(0, 1fr) )`,
             gridTemplateRows: `auto repeat( ${rowCount}, ${height}px )`,
           }}
@@ -542,7 +540,7 @@ export default function Grid({
                 gridRow: block.rows.join("/"),
                 cursor: dragging ? "grabbing" : "grab",
                 backgroundColor: block.color || DEFAULT_BLOCK_COLOR,
-                ["--block-accent"]: block.color || DEFAULT_BLOCK_COLOR,
+                "--block-accent": block.color || DEFAULT_BLOCK_COLOR,
               }}
               ref={(el) => (blocksRef.current[block.id] = el)}
               onMouseDown={(e) => {

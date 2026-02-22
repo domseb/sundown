@@ -1,9 +1,7 @@
 import "./styles.css";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Rnd } from "react-rnd";
+import React from "react";
 import { motion } from "framer-motion";
 import * as ToggleGroup from "@radix-ui/react-toggle-group";
-import { Reorder } from "framer-motion";
 
 export default function Flex({
   onBlocksSave,

@@ -1,7 +1,6 @@
 import "./styles.css";
 import './theme-config.css';
-import { useState, useEffect, useCallback, useRef } from "react";
-import * as Toggle from "@radix-ui/react-toggle";
+import { useState } from "react";
 import Grid from "./Grid";
 import Flex from "./Flex";
 import AutoGrid from "./AutoGrid";
@@ -44,24 +43,15 @@ function buildSwimlaneRows(swimlanes) {
 const DEFAULT_BLOCK_COLOR = "var(--crimson-4)";
 
 export default function Section({ swimlanes = DEFAULT_SWIMLANES, onSwimlaneChange }) {
-  const [gap, setGap] = useState(9);
-  const [height, setHeight] = useState(45); // change height of rows
+  const [gap] = useState(9);
+  const [height] = useState(45); // change height of rows
   const [blocks, setBlocks] = useState([]);
   const [lastBlockColor, setLastBlockColor] = useState(DEFAULT_BLOCK_COLOR);
-  const [resizing, setResizing] = useState(false);
-  const [autoGrid, setAutoGrid] = useState(false);
-  const [snapGrid, setSnapGrid] = useState(true);
-  const [minWidth, setMinWidth] = useState(200);
+  const [autoGrid] = useState(false);
+  const [snapGrid] = useState(true);
+  const [minWidth] = useState(200);
   const columnCount = 5;
   const { swimlaneRows, rowCount } = buildSwimlaneRows(swimlanes);
-
-  const handleAutoGrid = () => {
-    setAutoGrid(!autoGrid);
-  };
-
-  const handleSnap = () => {
-    setSnapGrid(!snapGrid);
-  };
 
   const addNewBlock = () => {
     setBlocks((blocks) => [
