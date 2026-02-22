@@ -52,7 +52,27 @@ body {
   color: #171717;
   margin: 0;
   padding: 0;
-  background: var(--crimson-3) !important;
+  background: white !important;
+}
+
+.app-layout {
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32px 32px 0;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-family: "Acma";
+  font-weight: 300;
+  font-size: 32px;
 }
 
 .column-title {
@@ -62,6 +82,108 @@ body {
   opacity: 0.5;
 }
 
+.column-title-corner {
+  min-width: 0;
+}
+
+.row-label {
+  font-family: "Agrandir" !important;
+  font-size: 14px;
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  padding-right: 12px;
+  justify-content: flex-end;
+  overflow: visible;
+}
+
+.row-label-button {
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  opacity: inherit;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  text-align: right;
+}
+
+.row-label-span {
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  overflow: visible;
+}
+
+.row-label-hours {
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+  padding: 0 8px;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  overflow: visible;
+}
+
+.row-label-hours:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 4px;
+}
+
+.row-label-top,
+.row-label-bottom {
+  font-family: "Agrandir", sans-serif;
+  font-size: 14px;
+}
+
+.row-label-empty {
+  visibility: hidden;
+  user-select: none;
+  height: 0;
+  min-height: 0;
+  overflow: hidden;
+  line-height: 0;
+}
+
+/* Shared boundary: number sits on the dividing line between swimlanes */
+.row-label-boundary {
+  transform: translateY(calc(var(--row-gap, 9px) / 2));
+}
+
+.row-label-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.row-label-time {
+  font-size: 13px;
+  padding: 2px 4px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  background: var(--color-background);
+  max-width: 5rem;
+}
+
+.row-label-done {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: var(--crimson-a4);
+  cursor: pointer;
+}
+
 h1 {
   font-family: "Acma";
   font-weight: 300;
@@ -69,6 +191,36 @@ h1 {
   width: 100%;
   text-align: center;
   margin-top: 50px;
+}
+
+/* Swimlane settings dialog */
+.swimlane-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.swimlane-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.swimlane-time-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.swimlane-time-inputs input {
+  flex: 1;
+  min-width: 0;
+}
+
+.swimlane-sep {
+  opacity: 0.6;
+  font-size: 14px;
 }
 
 ul,
@@ -116,17 +268,22 @@ li {
   border-radius: 10px;
   cursor: pointer;
   position: relative;
-  box-shadow: 0 0 0 2px var(--crimson-a6);
-  /* border: 2px solid var(--crimson-a5); */
+  box-shadow: 0 0 0 2px var(--block-accent, var(--crimson-a6));
   padding: 4px;
   pointer-events: auto;
-  /* background: #fddbdd; */
   background: var(--crimson-a4);
   /* Mobile touch improvements */
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
+  outline: none;
+}
+
+.block:focus-visible,
+.block.selected {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--block-accent, var(--crimson-4)) 85%, black);
+  transition: box-shadow 200ms ease;
 }
 
 .block.fit {
@@ -141,12 +298,23 @@ li {
   background: rgba(56, 88, 233, 0.2);
 } */
 
-.selected {
-  /* border: 2px solid blue; Change the border color to indicate selection */
-  box-shadow: 0 0 0 4px var(--crimson-a7);
-  transition: 200ms ease;
-  background: var(--crimson-a5);
-  /* background-color: rgba(0, 0, 255, 0.1); Light blue background */
+/* Block title input and delete icon themed to block color (--block-accent set on .block) */
+.block-title-wrap {
+  width: 100%;
+}
+
+.block .block-title-wrap input,
+.block .block-title-wrap [data-accent-color] {
+  background: color-mix(in srgb, var(--block-accent, var(--crimson-4)) 75%, white) !important;
+  border-color: color-mix(in srgb, var(--block-accent, var(--crimson-4)) 60%, transparent) !important;
+}
+
+.block .block-delete-btn {
+  color: color-mix(in srgb, var(--block-accent, var(--crimson-4)) 35%, black) !important;
+}
+
+.block .block-delete-btn:hover {
+  background: color-mix(in srgb, var(--block-accent, var(--crimson-4)) 30%, transparent) !important;
 }
 
 .block:hover .resizer {
@@ -178,6 +346,44 @@ li {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.block-color-swatch {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.block-color-picker-dropdown {
+  padding: 8px;
+  background: var(--color-background, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.block-color-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.block-color-option {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.block-color-option:hover {
+  transform: scale(1.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 
 .toolbar {
@@ -245,68 +451,21 @@ svg {
   -webkit-user-select: none;
 }
 
-.shadow-item:nth-child(1):before {
-  content: "";
-  position: absolute;
-  width: 100%;
-  height: 1px; /* suit your need */
-  background: rgba(0, 0, 0, 0.1); /* suit your need */
-  top: -5px;
-  left: 0;
-}
-
-.shadow-item:nth-child(2):before {
-  content: "";
-  position: absolute;
-  width: 100%;
-  height: 1px; /* suit your need */
-  background: rgba(0, 0, 0, 0.1); /* suit your need */
-  top: 103px;
-  left: 0;
-}
-
-.shadow-item:nth-child(3):before {
-  content: "";
-  position: absolute;
-  width: 100%;
-  height: 1px; /* suit your need */
-  background: rgba(0, 0, 0, 0.1); /* suit your need */
-  top: 265px;
-  left: 0;
-}
-
-.shadow-item:nth-child(4):before {
-  content: "";
-  position: absolute;
-  width: 100%;
-  height: 1px; /* suit your need */
-  background: rgba(0, 0, 0, 0.1); /* suit your need */
-  top: 319px;
-  left: 0;
-}
-.shadow-item:nth-child(5):before {
-  content: "";
-  position: absolute;
-  width: 100%;
-  height: 1px; /* suit your need */
-  background: rgba(0, 0, 0, 0.1); /* suit your need */
-  top: 535px;
-  left: 0;
-}
-.shadow-item:nth-child(6):before {
-  content: "";
-  position: absolute;
-  width: 100%;
-  height: 1px; /* suit your need */
-  background: rgba(0, 0, 0, 0.1); /* suit your need */
-  top: 643px;
-  left: 0;
-}
-
 .shadow-item:hover {
   background-color: rgba(0, 0, 0, 0.05);
   border-radius: 4px;
   transition: ease all 0.3s;
+}
+
+/* Border between focus row areas (swimlanes) - rendered in Grid.js */
+.swimlane-boundary {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .new-item {

@@ -6,16 +6,54 @@ import Grid from "./Grid";
 import Flex from "./Flex";
 import AutoGrid from "./AutoGrid";
 
-export default function Section() {
+const DEFAULT_SWIMLANES = [
+  { id: 'sl-1', start: '05:00', end: '07:00' },
+  { id: 'sl-2', start: '09:00', end: '12:00' },
+  { id: 'sl-3', start: '12:00', end: '13:00' },
+  { id: 'sl-4', start: '13:00', end: '17:00' },
+  { id: 'sl-5', start: '19:00', end: '22:00' },
+];
+
+/** Parse "HH:mm" to minutes since midnight */
+function parseTimeToMinutes(t) {
+  const [h, m] = (t || '00:00').split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/** Duration in hours between start and end (handles overnight). Minimum 1 hour. */
+function swimlaneDurationHours(swimlane) {
+  let startMin = parseTimeToMinutes(swimlane.start);
+  let endMin = parseTimeToMinutes(swimlane.end);
+  if (endMin <= startMin) endMin += 24 * 60;
+  const durationMinutes = endMin - startMin;
+  return Math.max(1, Math.round(durationMinutes / 60));
+}
+
+/** Build { swimlaneRows, rowCount } from swimlanes. Each swimlane gets rowSpan = duration in hours. */
+function buildSwimlaneRows(swimlanes) {
+  const swimlaneRows = [];
+  let startRow = 0;
+  for (const swimlane of swimlanes) {
+    const rowSpan = swimlaneDurationHours(swimlane);
+    swimlaneRows.push({ swimlane, startRow, rowSpan });
+    startRow += rowSpan;
+  }
+  return { swimlaneRows, rowCount: startRow };
+}
+
+const DEFAULT_BLOCK_COLOR = "var(--crimson-4)";
+
+export default function Section({ swimlanes = DEFAULT_SWIMLANES, onSwimlaneChange }) {
   const [gap, setGap] = useState(9);
   const [height, setHeight] = useState(45); // change height of rows
   const [blocks, setBlocks] = useState([]);
+  const [lastBlockColor, setLastBlockColor] = useState(DEFAULT_BLOCK_COLOR);
   const [resizing, setResizing] = useState(false);
   const [autoGrid, setAutoGrid] = useState(false);
   const [snapGrid, setSnapGrid] = useState(true);
   const [minWidth, setMinWidth] = useState(200);
-  const [columnCount, setColumnCount] = useState(5);
-  const [rowCount, setRowCount] = useState(12);
+  const columnCount = 5;
+  const { swimlaneRows, rowCount } = buildSwimlaneRows(swimlanes);
 
   const handleAutoGrid = () => {
     setAutoGrid(!autoGrid);
@@ -28,7 +66,13 @@ export default function Section() {
   const addNewBlock = () => {
     setBlocks((blocks) => [
       ...blocks,
-      { columns: [1, 2], rows: [1, 2], id: Date.now(), widthType: "fill" },
+      {
+        columns: [1, 2],
+        rows: [1, 2],
+        id: Date.now(),
+        widthType: "fill",
+        color: lastBlockColor,
+      },
     ]);
   };
 
@@ -136,6 +180,10 @@ export default function Section() {
           minWidth={minWidth}
           columnCount={columnCount}
           rowCount={rowCount}
+          swimlaneRows={swimlaneRows}
+          onSwimlaneChange={onSwimlaneChange}
+          lastBlockColor={lastBlockColor}
+          onBlockColorUsed={setLastBlockColor}
         />
       )}
       {showFlex && (

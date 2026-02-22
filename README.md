@@ -1,4 +1,17 @@
-# Getting Started with Create React App
+# Calendar App
+
+Weekly planner with draggable time blocks, backed by Supabase.
+
+## Supabase setup
+
+To connect the app to your own Supabase project (or create one), see **[SUPABASE.md](./SUPABASE.md)** for:
+
+- Creating the `blocks` table
+- Setting `REACT_APP_SUPABASE_URL` and `REACT_APP_SUPABASE_ANON_KEY` (e.g. in `.env.local`)
+
+Copy `.env.example` to `.env.local` and fill in your project URL and anon key.
+
+---
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
