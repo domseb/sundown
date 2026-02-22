@@ -83,6 +83,7 @@ export default function Grid({
   const blocksRef = useRef([]);
   const columnsRef = useRef([]);
   const [newBlockSpan, setNewBlockSpan] = useState(null);
+  const pendingNewBlockRef = useRef(null); // set on mousedown so mouseup can save even before state commits
   const [selectedBlockId, setSelectedBlockId] = useState(null);
   const [editingSwimlaneId, setEditingSwimlaneId] = useState(null);
   const [colorPickerOpen, setColorPickerOpen] = useState({ blockId: null, top: 0, left: 0 });
@@ -141,21 +142,23 @@ export default function Grid({
     };
 
     const saveNewBlock = (event) => {
-      if (newBlockSpan === null || swimlaneRows.length === 0) return;
-      let span = newBlockSpan;
+      const spanToSave = newBlockSpan ?? pendingNewBlockRef.current;
+      if (spanToSave === null || swimlaneRows.length === 0) return;
+      pendingNewBlockRef.current = null;
+      let span = spanToSave;
       if (event && event.clientX != null) {
         const releaseIndex = getCellIndexAt(event.clientX, event.clientY);
         if (releaseIndex != null) {
           const { col, row } = indexToColRow(releaseIndex);
           span = {
-            ...newBlockSpan,
+            ...spanToSave,
             columns: [
-              Math.min(newBlockSpan.columns[0], col),
-              Math.max(newBlockSpan.columns[1], col),
+              Math.min(spanToSave.columns[0], col),
+              Math.max(spanToSave.columns[1], col),
             ],
             rows: [
-              Math.min(newBlockSpan.rows[0], row),
-              Math.max(newBlockSpan.rows[1], row),
+              Math.min(spanToSave.rows[0], row),
+              Math.max(spanToSave.rows[1], row),
             ],
           };
         }
@@ -171,6 +174,7 @@ export default function Grid({
       delete newBlock.rows;
       const toSave = [...blocks, newBlock];
       onBlocksSave((prev) => [...prev, newBlock]);
+      setNewBlockSpan(null);
       saveBlocks(toSave)
         .then(() => {
           console.log("Blocks saved successfully");
@@ -178,7 +182,6 @@ export default function Grid({
         .catch((error) => {
           console.error("Error saving blocks:", error);
         });
-      setNewBlockSpan(null);
     };
 
     const saveBlockPositions = () => {
@@ -271,11 +274,13 @@ export default function Grid({
     const colPlace =
       (index + 1) % columnCount === 0 ? columnCount : (index + 1) % columnCount;
     const rowPlace = Math.ceil((index + 1) / columnCount);
-    if (newBlockSpan) {
-      const newBlock = { ...newBlockSpan };
-      newBlock.columns[1] = colPlace + 1;
-      newBlock.rows[1] = rowPlace + 1;
-      setNewBlockSpan(newBlock);
+    const currentSpan = newBlockSpan ?? pendingNewBlockRef.current;
+    if (currentSpan) {
+      const next = { ...currentSpan };
+      next.columns[1] = colPlace + 1;
+      next.rows[1] = rowPlace + 1;
+      pendingNewBlockRef.current = next;
+      setNewBlockSpan(next);
     }
   };
 
@@ -284,7 +289,7 @@ export default function Grid({
       (index + 1) % columnCount === 0
         ? parseInt(columnCount)
         : (index + 1) % columnCount;
-    setNewBlockSpan({
+    const span = {
       id: uuidv4(),
       columns: [col, col + 1],
       widthType: "fill",
@@ -293,7 +298,9 @@ export default function Grid({
         Math.ceil((index + 1) / columnCount) + 1,
       ],
       color: lastBlockColor || DEFAULT_BLOCK_COLOR,
-    });
+    };
+    pendingNewBlockRef.current = span;
+    setNewBlockSpan(span);
   };
 
   const handleTouchStart = (index, e) => {

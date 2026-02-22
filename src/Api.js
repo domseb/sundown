@@ -44,17 +44,20 @@ export const saveBlocks = async (blocks) => {
 
     if (deleteError) throw deleteError;
 
-    // Then insert all new blocks (only fields the table expects)
+    // Then insert all new blocks (omit .rows so DB uses default; Supabase accepts known columns)
     if (blocks.length > 0) {
-      const rows = blocks.map((b) => ({
-        id: b.id,
-        title: b.title ?? '',
-        color: b.color ?? 'var(--crimson-4)',
-        columns: Array.isArray(b.columns) ? b.columns : [1, 2],
-        widthType: b.widthType ?? 'fill',
-        startTime: b.startTime ?? '09:00',
-        endTime: b.endTime ?? '10:00',
-      }));
+      const rows = blocks.map((b) => {
+        const { rows: _rows, ...rest } = b;
+        return {
+          id: b.id,
+          title: rest.title ?? '',
+          color: rest.color ?? 'var(--crimson-4)',
+          columns: Array.isArray(b.columns) ? b.columns : [1, 2],
+          widthType: rest.widthType ?? 'fill',
+          startTime: rest.startTime ?? '09:00',
+          endTime: rest.endTime ?? '10:00',
+        };
+      });
       const { error: insertError } = await supabase
         .from('blocks')
         .insert(rows);
