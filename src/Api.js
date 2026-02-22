@@ -44,11 +44,20 @@ export const saveBlocks = async (blocks) => {
 
     if (deleteError) throw deleteError;
 
-    // Then insert all new blocks
+    // Then insert all new blocks (only fields the table expects)
     if (blocks.length > 0) {
+      const rows = blocks.map((b) => ({
+        id: b.id,
+        title: b.title ?? '',
+        color: b.color ?? 'var(--crimson-4)',
+        columns: Array.isArray(b.columns) ? b.columns : [1, 2],
+        widthType: b.widthType ?? 'fill',
+        startTime: b.startTime ?? '09:00',
+        endTime: b.endTime ?? '10:00',
+      }));
       const { error: insertError } = await supabase
         .from('blocks')
-        .insert(blocks);
+        .insert(rows);
 
       if (insertError) throw insertError;
     }

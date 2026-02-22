@@ -126,32 +126,44 @@ export default function Grid({
 
   useEffect(() => {
     const saveNewBlock = (event) => {
-      if (newBlockSpan !== null && swimlaneRows.length > 0) {
-        const { startTime, endTime } = blockRowsToTime(
-          newBlockSpan.rows,
-          swimlaneRows
-        );
-        const newBlock = {
-          ...newBlockSpan,
-          title: blockTitles[newBlockSpan.id] || "",
-          color: newBlockSpan.color || DEFAULT_BLOCK_COLOR,
-          startTime,
-          endTime,
-        };
-        delete newBlock.rows;
-        onBlocksSave((blocks) => {
-          const newBlocks = [...blocks, newBlock];
-          saveBlocks(newBlocks)
-            .then(() => {
-              console.log("Blocks saved successfully");
-            })
-            .catch((error) => {
-              console.error("Error saving blocks:", error);
-            });
-          return newBlocks;
-        });
-        setNewBlockSpan(null);
+      if (newBlockSpan === null || swimlaneRows.length === 0) return;
+      let span = newBlockSpan;
+      if (event && event.clientX != null) {
+        const releaseIndex = getCellIndexAt(event.clientX, event.clientY);
+        if (releaseIndex != null) {
+          const { col, row } = indexToColRow(releaseIndex);
+          span = {
+            ...newBlockSpan,
+            columns: [
+              Math.min(newBlockSpan.columns[0], col),
+              Math.max(newBlockSpan.columns[1], col),
+            ],
+            rows: [
+              Math.min(newBlockSpan.rows[0], row),
+              Math.max(newBlockSpan.rows[1], row),
+            ],
+          };
+        }
       }
+      const { startTime, endTime } = blockRowsToTime(span.rows, swimlaneRows);
+      const newBlock = {
+        ...span,
+        title: blockTitles[span.id] || "",
+        color: span.color || DEFAULT_BLOCK_COLOR,
+        startTime,
+        endTime,
+      };
+      delete newBlock.rows;
+      const toSave = [...blocks, newBlock];
+      onBlocksSave((prev) => [...prev, newBlock]);
+      saveBlocks(toSave)
+        .then(() => {
+          console.log("Blocks saved successfully");
+        })
+        .catch((error) => {
+          console.error("Error saving blocks:", error);
+        });
+      setNewBlockSpan(null);
     };
 
     const saveBlockPositions = () => {
@@ -176,8 +188,8 @@ export default function Grid({
       hasMovedBlock.current = false;
     };
 
-    const onMouseUp = () => {
-      saveNewBlock();
+    const onMouseUp = (e) => {
+      saveNewBlock(e);
       saveBlockPositions();
       hasMovedBlock.current = false;
     };
@@ -239,6 +251,23 @@ export default function Grid({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [selectedBlockId]);
+
+  /** Get 0-based cell index that contains (clientX, clientY), or null */
+  const getCellIndexAt = (clientX, clientY) => {
+    for (let i = 0; i < columnCount * rowCount; i++) {
+      const el = columnsRef.current[i];
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) return i;
+    }
+    return null;
+  };
+
+  const indexToColRow = (index) => {
+    const col = (index + 1) % columnCount === 0 ? columnCount : (index + 1) % columnCount;
+    const row = Math.ceil((index + 1) / columnCount);
+    return { col, row }; // 1-based
+  };
 
   const handleGridEnter = (index) => {
     const colPlace =
