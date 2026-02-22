@@ -28,6 +28,13 @@ const RADIX_BLOCK_COLORS = [
   "var(--orange-4)",
   "var(--tomato-4)",
 ];
+
+/** Map block accent (e.g. var(--purple-4)) to its a7 ring token (e.g. var(--purple-a7)) */
+function blockAccentToA7(accent) {
+  if (!accent || typeof accent !== "string") return "var(--crimson-a7)";
+  const m = accent.match(/var\(--(\w+)-/);
+  return m ? `var(--${m[1]}-a7)` : "var(--crimson-a7)";
+}
 /** "HH:mm" -> hour number for display (12-hour: 12 for noon/midnight, 1-11 for am/pm) */
 function swimlaneHourNumber(t) {
   const h = parseInt((t || "0").split(":")[0], 10) || 0;
@@ -588,6 +595,7 @@ export default function Grid({
                 cursor: dragging ? "grabbing" : "grab",
                 backgroundColor: block.color || DEFAULT_BLOCK_COLOR,
                 "--block-accent": block.color || DEFAULT_BLOCK_COLOR,
+                "--block-accent-ring": blockAccentToA7(block.color || DEFAULT_BLOCK_COLOR),
               }}
               ref={(el) => (blocksRef.current[block.id] = el)}
               onMouseDown={(e) => {

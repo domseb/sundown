@@ -269,11 +269,10 @@ li {
   border-radius: 10px;
   cursor: pointer;
   position: relative;
-  box-shadow: 0 0 0 2px var(--block-accent, var(--crimson-a6));
+  box-shadow: 0 0 0 1px var(--block-accent-ring, var(--crimson-a7));
   padding: 4px;
   pointer-events: auto;
   background: var(--crimson-a4);
-  /* Mobile touch improvements */
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
@@ -281,9 +280,10 @@ li {
   outline: none;
 }
 
+/* Selected/focus: same a7 colour, 2px ring */
 .block:focus-visible,
 .block.selected {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--block-accent, var(--crimson-4)) 85%, black);
+  box-shadow: 0 0 0 2px var(--block-accent-ring, var(--crimson-a7));
   transition: box-shadow 200ms ease;
 }
 
