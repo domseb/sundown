@@ -57,7 +57,7 @@ export const saveBlocks = async (blocks) => {
 
 export const deleteBlock = async (id) => {
   if (!supabase) {
-    return { success: true };
+    return Promise.reject(new Error('Supabase is not configured'));
   }
   try {
     const { error } = await supabase

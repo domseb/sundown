@@ -150,7 +150,7 @@ export default function Grid({
 
         deleteBlock(blockId)
           .then(() => {
-            onBlocksSave(blocks.filter((block) => block.id !== blockId));
+            onBlocksSave((prevBlocks) => prevBlocks.filter((block) => block.id !== blockId));
           })
           .catch((error) => {
             console.error("Error deleting block:", error);
@@ -253,19 +253,17 @@ export default function Grid({
     e.stopPropagation();
     if (!currentBlock.current) return;
     const colWidth = columnsRef.current[0].getBoundingClientRect().width;
-    const updatedBlocks = [...blocks];
-    const updatedBlock = updatedBlocks.find(
-      (b) => b.id === currentBlock.current.id
+    const deltaCol = Math.round(pointInfo.offset.x / (colWidth + gap));
+    const deltaRow = Math.round(pointInfo.offset.y / (height + gap));
+    const updatedBlocks = blocks.map((block) =>
+      block.id !== currentBlock.current.id
+        ? block
+        : {
+            ...block,
+            columns: [block.columns[0], currentBlock.current.columns[1] + deltaCol],
+            rows: [block.rows[0], currentBlock.current.rows[1] + deltaRow],
+          }
     );
-
-    updatedBlock.columns[1] =
-      currentBlock.current.columns[1] +
-      Math.round(pointInfo.offset.x / (colWidth + gap));
-
-    updatedBlock.rows[1] =
-      currentBlock.current.rows[1] +
-      Math.round(pointInfo.offset.y / (height + gap));
-
     onBlocksSave(updatedBlocks);
     setResizing(true);
   };
@@ -274,25 +272,23 @@ export default function Grid({
     if (!currentBlock.current) return;
 
     const colWidth = columnsRef.current[0].getBoundingClientRect().width;
-    const updatedBlocks = [...blocks];
-    const updatedBlock = updatedBlocks.find(
-      (b) => b.id === currentBlock.current.id
+    const deltaCol = Math.round(pointInfo.offset.x / (colWidth + gap));
+    const deltaRow = Math.round(pointInfo.offset.y / (height + gap));
+    const updatedBlocks = blocks.map((block) =>
+      block.id !== currentBlock.current.id
+        ? block
+        : {
+            ...block,
+            columns: [
+              currentBlock.current.columns[0] + deltaCol,
+              currentBlock.current.columns[1] + deltaCol,
+            ],
+            rows: [
+              currentBlock.current.rows[0] + deltaRow,
+              currentBlock.current.rows[1] + deltaRow,
+            ],
+          }
     );
-
-    updatedBlock.columns[0] =
-      currentBlock.current.columns[0] +
-      Math.round(pointInfo.offset.x / (colWidth + gap));
-    updatedBlock.columns[1] =
-      currentBlock.current.columns[1] +
-      Math.round(pointInfo.offset.x / (colWidth + gap));
-
-    updatedBlock.rows[0] =
-      currentBlock.current.rows[0] +
-      Math.round(pointInfo.offset.y / (height + gap));
-    updatedBlock.rows[1] =
-      currentBlock.current.rows[1] +
-      Math.round(pointInfo.offset.y / (height + gap));
-
     onBlocksSave(updatedBlocks);
     setDragging(true);
   };
@@ -356,11 +352,11 @@ export default function Grid({
   const handleBlockDelete = (blockId) => {
     deleteBlock(blockId)
       .then(() => {
-        onBlocksSave(blocks.filter((block) => block.id !== blockId));
+        onBlocksSave((prevBlocks) => prevBlocks.filter((block) => block.id !== blockId));
       })
-      .catch((error) =>
-        console.error(`Error deleting block with ID ${blockId}:`, error)
-      );
+      .catch((error) => {
+        console.error(`Error deleting block with ID ${blockId}:`, error);
+      });
   };
 
   return (
