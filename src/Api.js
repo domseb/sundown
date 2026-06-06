@@ -8,10 +8,111 @@ const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 const supabase =
   supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
-export const fetchBlocks = async () => {
-  if (!supabase) {
-    return [];
+const BLOCKS_STORAGE_KEY = 'calendar-app-blocks';
+
+function blockToRow(block, { includeNotes = true } = {}) {
+  const row = {
+    id: block.id,
+    title: block.title ?? '',
+    color: block.color ?? 'var(--crimson-4)',
+    columns: block.columns,
+    rows: block.rows ?? [1, 2],
+    widthType: block.widthType ?? 'fill',
+    startTime: block.startTime ?? '09:00',
+    endTime: block.endTime ?? '10:00',
+  };
+
+  if (includeNotes) {
+    row.notes = block.notes ?? '';
   }
+
+  return row;
+}
+
+export function loadBlocksFromStorage() {
+  try {
+    const raw = localStorage.getItem(BLOCKS_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch (error) {
+    console.error('Error loading blocks from localStorage:', error);
+    return null;
+  }
+}
+
+export function saveBlocksToStorage(blocks) {
+  try {
+    localStorage.setItem(BLOCKS_STORAGE_KEY, JSON.stringify(blocks));
+  } catch (error) {
+    console.error('Error saving blocks to localStorage:', error);
+  }
+}
+
+async function upsertBlockRows(rows) {
+  let { error } = await supabase.from('blocks').upsert(rows, { onConflict: 'id' });
+
+  if (
+    error?.code === 'PGRST204' &&
+    typeof error.message === 'string' &&
+    error.message.includes('notes')
+  ) {
+    console.warn(
+      'blocks.notes column is missing in Supabase. Notes are saved locally only until you run: alter table public.blocks add column if not exists notes text default \'\';'
+    );
+    ({ error } = await supabase
+      .from('blocks')
+      .upsert(
+        rows.map((row) => {
+          const { notes, ...rest } = row;
+          return rest;
+        }),
+        { onConflict: 'id' }
+      ));
+  }
+
+  if (error) throw error;
+}
+
+async function deleteRemovedBlocks(blocks) {
+  const keepIds = new Set(blocks.map((block) => block.id));
+
+  if (keepIds.size === 0) {
+    const { error } = await supabase
+      .from('blocks')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+    if (error) throw error;
+    return;
+  }
+
+  const { data: existing, error: fetchError } = await supabase
+    .from('blocks')
+    .select('id');
+
+  if (fetchError) throw fetchError;
+
+  const idsToDelete = (existing || [])
+    .map((row) => row.id)
+    .filter((id) => !keepIds.has(id));
+
+  if (idsToDelete.length === 0) return;
+
+  const { error: deleteError } = await supabase
+    .from('blocks')
+    .delete()
+    .in('id', idsToDelete);
+
+  if (deleteError) throw deleteError;
+}
+
+export const fetchBlocks = async () => {
+  const localBlocks = loadBlocksFromStorage();
+
+  if (!supabase) {
+    return localBlocks || [];
+  }
+
   try {
     const { data, error } = await supabase
       .from('blocks')
@@ -19,39 +120,50 @@ export const fetchBlocks = async () => {
       .order('created_at', { ascending: true });
 
     if (error) throw error;
-    return data || [];
+
+    if (data?.length > 0) {
+      const merged = data.map((block) => {
+        const local = localBlocks?.find((item) => item.id === block.id);
+        if (local?.notes && !block.notes) {
+          return { ...block, notes: local.notes };
+        }
+        return block;
+      });
+      saveBlocksToStorage(merged);
+      return merged;
+    }
+
+    if (localBlocks?.length > 0) {
+      saveBlocks(localBlocks).catch((restoreError) => {
+        console.error('Error restoring blocks to Supabase:', restoreError);
+      });
+      return localBlocks;
+    }
+
+    return [];
   } catch (error) {
     console.error('Error fetching blocks:', error);
-    throw error;
+    return localBlocks || [];
   }
 };
 
 export const saveBlocks = async (blocks) => {
+  saveBlocksToStorage(blocks);
+
   if (!supabase) {
-    return { success: true };
+    return { success: true, localOnly: true };
   }
+
   try {
-    // First, delete all existing blocks
-    const { error: deleteError } = await supabase
-      .from('blocks')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all records
-
-    if (deleteError) throw deleteError;
-
-    // Then insert all blocks
     if (blocks.length > 0) {
-      const { error: insertError } = await supabase
-        .from('blocks')
-        .insert(blocks);
-
-      if (insertError) throw insertError;
+      await upsertBlockRows(blocks.map((block) => blockToRow(block)));
     }
 
+    await deleteRemovedBlocks(blocks);
     return { success: true };
   } catch (error) {
     console.error('Error saving blocks:', error);
-    throw error;
+    return { success: true, localOnly: true };
   }
 };
 
@@ -69,6 +181,101 @@ export const deleteBlock = async (id) => {
     return { success: true };
   } catch (error) {
     console.error('Error deleting block:', error);
+    throw error;
+  }
+};
+
+const SWIMLANES_STORAGE_KEY = 'calendar-app-swimlanes';
+
+export function loadSwimlanesFromStorage() {
+  try {
+    const raw = localStorage.getItem(SWIMLANES_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch (error) {
+    console.error('Error loading swimlanes from localStorage:', error);
+    return null;
+  }
+}
+
+export function saveSwimlanesToStorage(swimlanes) {
+  try {
+    localStorage.setItem(SWIMLANES_STORAGE_KEY, JSON.stringify(swimlanes));
+  } catch (error) {
+    console.error('Error saving swimlanes to localStorage:', error);
+  }
+}
+
+export const fetchSwimlanes = async () => {
+  if (!supabase) {
+    return loadSwimlanesFromStorage();
+  }
+  try {
+    const { data, error } = await supabase
+      .from('swimlanes')
+      .select('id, start, end')
+      .order('position', { ascending: true });
+
+    if (error) {
+      if (error.code === 'PGRST205') {
+        return loadSwimlanesFromStorage();
+      }
+      throw error;
+    }
+
+    if (data?.length > 0) {
+      saveSwimlanesToStorage(data);
+      return data;
+    }
+
+    return loadSwimlanesFromStorage();
+  } catch (error) {
+    console.error('Error fetching swimlanes:', error);
+    return loadSwimlanesFromStorage();
+  }
+};
+
+export const saveSwimlanes = async (swimlanes) => {
+  saveSwimlanesToStorage(swimlanes);
+
+  if (!supabase) {
+    return { success: true };
+  }
+  try {
+    const { error: deleteError } = await supabase
+      .from('swimlanes')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+
+    if (deleteError) {
+      if (deleteError.code === 'PGRST205') {
+        return { success: true, localOnly: true };
+      }
+      throw deleteError;
+    }
+
+    if (swimlanes.length > 0) {
+      const rows = swimlanes.map((swimlane, index) => ({
+        id: swimlane.id,
+        start: swimlane.start,
+        end: swimlane.end,
+        position: index,
+      }));
+
+      const { error: insertError } = await supabase
+        .from('swimlanes')
+        .insert(rows);
+
+      if (insertError) throw insertError;
+    }
+
+    return { success: true };
+  } catch (error) {
+    if (error.code === 'PGRST205') {
+      return { success: true, localOnly: true };
+    }
+    console.error('Error saving swimlanes:', error);
     throw error;
   }
 };

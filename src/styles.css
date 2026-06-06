@@ -60,20 +60,30 @@ body {
 }
 
 .app-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: center;
-  position: relative;
   padding: 32px 32px 0;
   max-width: 1280px;
   margin: 0 auto;
 }
 
+.app-logo {
+  grid-column: 2;
+  height: 21px;
+  width: auto;
+  display: block;
+}
+
 .app-header .app-header-settings {
-  position: absolute;
-  right: 32px;
-  top: 50%;
-  transform: translateY(-50%);
+  grid-column: 3;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+}
+
+.app-header-settings .rt-DropdownMenuItem {
+  gap: 8px;
 }
 
 .app-header h1 {
@@ -81,12 +91,6 @@ body {
   font-family: "Acma";
   font-weight: 300;
   font-size: 32px;
-}
-
-.app-logo {
-  height: 21px;
-  width: auto;
-  display: block;
 }
 
 .column-title {
@@ -284,7 +288,7 @@ li {
   cursor: pointer;
   position: relative;
   box-shadow: 0 0 0 1px var(--block-accent-ring, var(--crimson-a7));
-  padding: 4px;
+  padding: 2px;
   pointer-events: auto;
   background: var(--crimson-a4);
   touch-action: manipulation;
@@ -292,6 +296,13 @@ li {
   user-select: none;
   -webkit-user-select: none;
   outline: none;
+}
+
+.block-drag-surface {
+  position: absolute;
+  inset: 0 8px 8px 0;
+  z-index: 1;
+  cursor: grab;
 }
 
 /* Selected/focus: same a7 colour, 2px ring */
@@ -313,31 +324,72 @@ li {
   background: rgba(56, 88, 233, 0.2);
 } */
 
-/* Block title input and delete icon themed to block color (--block-accent set on .block) */
-.block-title-wrap {
+/* Block label and editor */
+.block-label-wrap {
   width: 100%;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  z-index: 0;
+  display: flex;
+  align-items: flex-start;
+  padding: 4px 6px 0;
+  pointer-events: none;
 }
 
-.block .block-title-wrap input,
-.block .block-title-wrap [data-accent-color] {
-  background: color-mix(in srgb, var(--block-accent, var(--crimson-4)) 75%, white) !important;
-  border-color: color-mix(in srgb, var(--block-accent, var(--crimson-4)) 60%, transparent) !important;
+.block-label {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: color-mix(in srgb, var(--block-accent, var(--crimson-4)) 35%, black);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.block .block-delete-btn {
-  color: color-mix(in srgb, var(--block-accent, var(--crimson-4)) 35%, black) !important;
+.block-label-empty {
+  opacity: 0.55;
 }
 
-.block .block-delete-btn:hover {
-  background: color-mix(in srgb, var(--block-accent, var(--crimson-4)) 30%, transparent) !important;
+.block-editor-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.block:hover .resizer {
+.block-editor-label {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+.block-editor-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  gap: 12px;
+}
+
+.block-editor-colors {
+  margin-top: 4px;
+}
+
+.block-color-option.selected {
+  box-shadow: 0 0 0 2px #171717;
+}
+
+.block:hover .resizer,
+.block.selected .resizer {
   display: block;
 }
 
 .resizer {
   display: none;
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
 }
 
 .resize {
@@ -351,6 +403,8 @@ li {
   width: 10px;
   height: 10px;
   cursor: se-resize;
+  pointer-events: auto;
+  touch-action: none;
 }
 
 .tools {
@@ -470,6 +524,22 @@ svg {
   background-color: rgba(0, 0, 0, 0.05);
   border-radius: 4px;
   transition: ease all 0.3s;
+}
+
+.grid-slot-hint {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 6px));
+  z-index: 1000;
+  pointer-events: none;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(23, 23, 23, 0.92);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* Border between focus row areas (swimlanes) - rendered in Grid.js */

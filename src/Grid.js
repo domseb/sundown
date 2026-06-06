@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { TextField, IconButton } from "@radix-ui/themes";
-import { fetchBlocks, saveBlocks, deleteBlock } from "./Api";
+import { TextField, Button, Dialog, TextArea } from "@radix-ui/themes";
+import { fetchBlocks, saveBlocks } from "./Api";
+import { rowIndexToStartTime, formatTimeHint } from "./blockTimeUtils";
 import { v4 as uuidv4 } from "uuid";
 import { TrashIcon } from "@radix-ui/react-icons";
 
@@ -49,6 +49,7 @@ export default function Grid({
   onSwimlaneChange,
   lastBlockColor,
   onBlockColorUsed,
+  clearBoardSignal = 0,
   rowGroups = [
     { rows: 2, className: "focus-a" },
     { rows: 3, className: "focus-b" },
@@ -63,12 +64,15 @@ export default function Grid({
   const [newBlockSpan, setNewBlockSpan] = useState(null);
   const [selectedBlockId, setSelectedBlockId] = useState(null);
   const [editingSwimlaneId, setEditingSwimlaneId] = useState(null);
-  const [colorPickerOpen, setColorPickerOpen] = useState({ blockId: null, top: 0, left: 0 });
-  const colorPickerRef = useRef(null);
+  const [editingBlockId, setEditingBlockId] = useState(null);
+  const [editDraft, setEditDraft] = useState({ title: "", notes: "" });
   const currentBlock = useRef(null);
+  const dragOriginRef = useRef(null);
+  const isResizingRef = useRef(false);
+  const suppressClickRef = useRef(false);
   const [, setResizing] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [blockTitles, setBlockTitles] = useState({});
+  const [slotHint, setSlotHint] = useState(null);
   const daysOfWeek = ["M", "T", "W", "T", "F"];
   const DEFAULT_BLOCK_COLOR = "var(--crimson-4)";
 
@@ -90,22 +94,35 @@ export default function Grid({
   useEffect(() => {
     fetchBlocks()
       .then((blocksData) => {
-        const titles = {};
-        blocksData.forEach((block) => {
-          titles[block.id] = block.title || "";
-        });
-        setBlockTitles(titles);
         onBlocksSave(blocksData || []);
       })
       .catch((error) => console.error("Error loading blocks:", error));
   }, [onBlocksSave]);
 
   useEffect(() => {
+    if (clearBoardSignal === 0) return;
+
+    setSelectedBlockId(null);
+    setEditingBlockId(null);
+    setNewBlockSpan(null);
+    currentBlock.current = null;
+    onBlocksSave([]);
+    saveBlocks([])
+      .then(() => {
+        console.log("Board cleared successfully");
+      })
+      .catch((error) => {
+        console.error("Error clearing board:", error);
+      });
+  }, [clearBoardSignal, onBlocksSave]);
+
+  useEffect(() => {
     const saveNewBlock = () => {
       if (newBlockSpan === null) return;
       const newBlock = {
         ...newBlockSpan,
-        title: blockTitles[newBlockSpan.id] || "",
+        title: "",
+        notes: "",
       };
       onBlocksSave((blocks) => {
         const newBlocks = [...blocks, newBlock];
@@ -122,13 +139,27 @@ export default function Grid({
     };
 
     const saveBlockPositions = () => {
-      if (currentBlock.current) {
+      if (!currentBlock.current || isResizingRef.current) return;
+
+      onBlocksSave((blocks) => {
+        const blockStillExists = blocks.some(
+          (block) => block.id === currentBlock.current?.id
+        );
+        if (!blockStillExists || !currentBlock.current) {
+          currentBlock.current = null;
+          dragOriginRef.current = null;
+          return blocks;
+        }
+
         const updatedBlocks = blocks.map((block) =>
           block.id === currentBlock.current.id
-            ? { ...currentBlock.current }
+            ? {
+                ...block,
+                columns: [...currentBlock.current.columns],
+                rows: [...currentBlock.current.rows],
+              }
             : block
         );
-        onBlocksSave(updatedBlocks);
         saveBlocks(updatedBlocks)
           .then(() => {
             console.log("Blocks saved successfully after drag/resize");
@@ -137,7 +168,9 @@ export default function Grid({
             console.error("Error saving blocks after drag/resize:", error);
           });
         currentBlock.current = null;
-      }
+        dragOriginRef.current = null;
+        return updatedBlocks;
+      });
     };
 
     document.addEventListener("mouseup", saveNewBlock);
@@ -147,30 +180,93 @@ export default function Grid({
       document.removeEventListener("mouseup", saveNewBlock);
       document.removeEventListener("mouseup", saveBlockPositions);
     };
-  }, [newBlockSpan, blocks, blockTitles, onBlocksSave]);
+  }, [newBlockSpan, onBlocksSave]);
+
+  const editingBlock = useMemo(
+    () => blocks.find((block) => block.id === editingBlockId) || null,
+    [blocks, editingBlockId]
+  );
+
+  const openBlockEditor = (block) => {
+    setEditingBlockId(block.id);
+    setEditDraft({
+      title: block.title || "",
+      notes: block.notes || "",
+    });
+    setSelectedBlockId(block.id);
+  };
+
+  const closeBlockEditor = () => {
+    setEditingBlockId(null);
+  };
+
+  const saveBlockEditor = () => {
+    if (!editingBlockId) return;
+    onBlocksSave((prevBlocks) => {
+      const updatedBlocks = prevBlocks.map((block) =>
+        block.id === editingBlockId
+          ? { ...block, title: editDraft.title, notes: editDraft.notes }
+          : block
+      );
+      saveBlocks(updatedBlocks).catch((error) => {
+        console.error("Error saving block details:", error);
+      });
+      return updatedBlocks;
+    });
+    closeBlockEditor();
+  };
+
+  const handleEditorColorChange = (color) => {
+    if (!editingBlockId) return;
+    onBlocksSave((prevBlocks) => {
+      const updatedBlocks = prevBlocks.map((block) =>
+        block.id === editingBlockId ? { ...block, color } : block
+      );
+      saveBlocks(updatedBlocks).catch((error) => {
+        console.error("Error saving block color:", error);
+      });
+      return updatedBlocks;
+    });
+    onBlockColorUsed?.(color);
+  };
+
+  const handleEditorDelete = () => {
+    if (!editingBlockId) return;
+    const blockId = editingBlockId;
+    closeBlockEditor();
+    removeBlock(blockId);
+  };
+
+  const removeBlock = (blockId) => {
+    currentBlock.current = null;
+    dragOriginRef.current = null;
+    setSelectedBlockId(null);
+    setEditingBlockId(null);
+    onBlocksSave((prevBlocks) => {
+      const updatedBlocks = prevBlocks.filter((block) => block.id !== blockId);
+      saveBlocks(updatedBlocks).catch((error) => {
+        console.error(`Error deleting block with ID ${blockId}:`, error);
+      });
+      return updatedBlocks;
+    });
+  };
 
   useEffect(() => {
     const handleKeyPress = (event) => {
       if (
         (event.key === "Backspace" || event.key === "Delete") &&
         currentBlock.current &&
-        document.activeElement.tagName !== "INPUT"
+        !editingBlockId &&
+        document.activeElement.tagName !== "INPUT" &&
+        document.activeElement.tagName !== "TEXTAREA"
       ) {
-        const blockId = currentBlock.current.id;
-
-        deleteBlock(blockId)
-          .then(() => {
-            onBlocksSave((prevBlocks) => prevBlocks.filter((block) => block.id !== blockId));
-          })
-          .catch((error) => {
-            console.error("Error deleting block:", error);
-          });
-
-        currentBlock.current = null;
-        setSelectedBlockId(null);
+        removeBlock(currentBlock.current.id);
       }
 
       if (event.key === "Escape") {
+        if (editingBlockId) {
+          closeBlockEditor();
+        }
         setSelectedBlockId(null);
         currentBlock.current = null;
       }
@@ -180,7 +276,7 @@ export default function Grid({
     return () => {
       document.removeEventListener("keydown", handleKeyPress);
     };
-  }, [blocks, onBlocksSave]);
+  }, [onBlocksSave, editingBlockId]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -200,7 +296,7 @@ export default function Grid({
     };
   }, [selectedBlockId]);
 
-  const handleGridEnter = (index) => {
+  const handleGridEnter = (index, event) => {
     const colPlace =
       (index + 1) % columnCount === 0 ? columnCount : (index + 1) % columnCount;
     const rowPlace = Math.ceil((index + 1) / columnCount);
@@ -209,6 +305,16 @@ export default function Grid({
       newBlock.columns[1] = colPlace + 1;
       newBlock.rows[1] = rowPlace + 1;
       setNewBlockSpan(newBlock);
+    }
+
+    if (event && swimlaneRows.length > 0) {
+      const timeStr = rowIndexToStartTime(rowPlace, swimlaneRows);
+      const rect = event.currentTarget.getBoundingClientRect();
+      setSlotHint({
+        text: formatTimeHint(timeStr),
+        x: rect.left + rect.width / 2,
+        y: rect.top,
+      });
     }
   };
 
@@ -259,19 +365,50 @@ export default function Grid({
     document.addEventListener('touchend', handleTouchEnd, { once: true });
   };
 
+  const setBlockDragOrigin = (block) => {
+    dragOriginRef.current = {
+      columns: [...block.columns],
+      rows: [...block.rows],
+    };
+    currentBlock.current = {
+      id: block.id,
+      columns: [...block.columns],
+      rows: [...block.rows],
+    };
+  };
+
   const handleResize = (e, pointInfo) => {
     e.stopPropagation();
-    if (!currentBlock.current) return;
+    if (!currentBlock.current || !dragOriginRef.current) return;
+    if (Math.abs(pointInfo.offset.x) > 2 || Math.abs(pointInfo.offset.y) > 2) {
+      suppressClickRef.current = true;
+    }
     const colWidth = columnsRef.current[0].getBoundingClientRect().width;
     const deltaCol = Math.round(pointInfo.offset.x / (colWidth + gap));
     const deltaRow = Math.round(pointInfo.offset.y / (height + gap));
+    const origin = dragOriginRef.current;
+    const colEnd = Math.max(
+      origin.columns[0] + 1,
+      Math.min(origin.columns[1] + deltaCol, columnCount + 1)
+    );
+    const rowEnd = Math.max(
+      origin.rows[0] + 1,
+      Math.min(origin.rows[1] + deltaRow, rowCount + 1)
+    );
+    const newColumns = [origin.columns[0], colEnd];
+    const newRows = [origin.rows[0], rowEnd];
+    currentBlock.current = {
+      id: currentBlock.current.id,
+      columns: newColumns,
+      rows: newRows,
+    };
     const updatedBlocks = blocks.map((block) =>
       block.id !== currentBlock.current.id
         ? block
         : {
             ...block,
-            columns: [block.columns[0], currentBlock.current.columns[1] + deltaCol],
-            rows: [block.rows[0], currentBlock.current.rows[1] + deltaRow],
+            columns: newColumns,
+            rows: newRows,
           }
     );
     onBlocksSave(updatedBlocks);
@@ -279,94 +416,41 @@ export default function Grid({
   };
 
   const handleDrag = (e, pointInfo) => {
-    if (!currentBlock.current) return;
+    if (isResizingRef.current) return;
+    if (e.target?.closest?.(".resize")) return;
+    if (!currentBlock.current || !dragOriginRef.current) return;
+
+    if (Math.abs(pointInfo.offset.x) > 2 || Math.abs(pointInfo.offset.y) > 2) {
+      suppressClickRef.current = true;
+    }
 
     const colWidth = columnsRef.current[0].getBoundingClientRect().width;
     const deltaCol = Math.round(pointInfo.offset.x / (colWidth + gap));
     const deltaRow = Math.round(pointInfo.offset.y / (height + gap));
+    const newColumns = [
+      dragOriginRef.current.columns[0] + deltaCol,
+      dragOriginRef.current.columns[1] + deltaCol,
+    ];
+    const newRows = [
+      dragOriginRef.current.rows[0] + deltaRow,
+      dragOriginRef.current.rows[1] + deltaRow,
+    ];
+    currentBlock.current = {
+      id: currentBlock.current.id,
+      columns: newColumns,
+      rows: newRows,
+    };
     const updatedBlocks = blocks.map((block) =>
       block.id !== currentBlock.current.id
         ? block
         : {
             ...block,
-            columns: [
-              currentBlock.current.columns[0] + deltaCol,
-              currentBlock.current.columns[1] + deltaCol,
-            ],
-            rows: [
-              currentBlock.current.rows[0] + deltaRow,
-              currentBlock.current.rows[1] + deltaRow,
-            ],
+            columns: newColumns,
+            rows: newRows,
           }
     );
     onBlocksSave(updatedBlocks);
     setDragging(true);
-  };
-
-  const handleTitleChange = (blockId, newTitle) => {
-    setBlockTitles((prevTitles) => ({
-      ...prevTitles,
-      [blockId]: newTitle,
-    }));
-  };
-
-  const handleTitleBlur = (blockId) => {
-    const updatedBlocks = blocks.map((block) =>
-      block.id === blockId ? { ...block, title: blockTitles[blockId] } : block
-    );
-
-    onBlocksSave(updatedBlocks);
-
-    saveBlocks(updatedBlocks)
-      .then(() => {
-        console.log("Blocks saved successfully with titles on blur");
-      })
-      .catch((error) => {
-        console.error("Error saving blocks with titles on blur:", error);
-      });
-  };
-
-  useEffect(() => {
-    if (!colorPickerOpen.blockId) return;
-    const onMouseDown = (e) => {
-      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target)) {
-        setColorPickerOpen((prev) => ({ ...prev, blockId: null }));
-      }
-    };
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
-  }, [colorPickerOpen.blockId]);
-
-  const handleBlockColorChange = (blockId, color) => {
-    const updatedBlocks = blocks.map((block) =>
-      block.id === blockId ? { ...block, color } : block
-    );
-    onBlocksSave(updatedBlocks);
-    saveBlocks(updatedBlocks).catch((error) =>
-      console.error("Error saving block color:", error)
-    );
-    setColorPickerOpen((prev) => ({ ...prev, blockId: null }));
-    onBlockColorUsed?.(color);
-  };
-
-  const openColorPicker = (blockId, event) => {
-    event.stopPropagation();
-    const rect = event.currentTarget.getBoundingClientRect();
-    setColorPickerOpen({
-      blockId,
-      top: rect.bottom + 4,
-      left: rect.left,
-    });
-  };
-
-  const handleBlockDelete = (blockId) => {
-    deleteBlock(blockId)
-      .then(() => {
-        onBlocksSave((prevBlocks) => prevBlocks.filter((block) => block.id !== blockId));
-      })
-      .catch((error) => {
-        console.error(`Error deleting block with ID ${blockId}:`, error);
-      });
   };
 
   return (
@@ -489,6 +573,7 @@ export default function Grid({
                 gridTemplateRows: `repeat( ${rowCount}, ${height}px )`,
               }}
               className="shadow-grid"
+              onMouseLeave={!isMobile ? () => setSlotHint(null) : undefined}
             >
               {[...Array(columnCount * rowCount)].map((col, index) => (
                 <div
@@ -500,7 +585,7 @@ export default function Grid({
                   } : undefined}
                   onTouchStart={!isMobile ? (e) => handleTouchStart(index, e) : undefined}
                   ref={(el) => (columnsRef.current[index] = el)}
-                  onMouseEnter={!isMobile ? () => handleGridEnter(index) : undefined}
+                  onMouseEnter={!isMobile ? (e) => handleGridEnter(index, e) : undefined}
                 ></div>
               ))}
             </div>
@@ -553,106 +638,89 @@ export default function Grid({
               style={{
                 gridColumn: block.columns.join("/"),
                 gridRow: block.rows.join("/"),
-                cursor: isMobile ? "default" : dragging ? "grabbing" : "grab",
+                cursor: isMobile ? "default" : dragging ? "grabbing" : undefined,
                 backgroundColor: block.color || DEFAULT_BLOCK_COLOR,
                 "--block-accent": block.color || DEFAULT_BLOCK_COLOR,
                 "--block-accent-ring": blockAccentToA7(block.color || DEFAULT_BLOCK_COLOR),
               }}
               ref={(el) => (blocksRef.current[block.id] = el)}
-              onMouseDown={!isMobile ? (e) => {
-                if (e.target.tagName !== "INPUT") {
-                  currentBlock.current = {
-                    id: block.id,
-                    columns: [...block.columns],
-                    rows: [...block.rows],
-                  };
-                  setSelectedBlockId(block.id);
+              onClick={!isMobile ? (e) => {
+                e.stopPropagation();
+                if (suppressClickRef.current) {
+                  suppressClickRef.current = false;
+                  return;
                 }
+                openBlockEditor(block);
               } : undefined}
-              onTouchStart={!isMobile ? (e) => {
-                if (e.target.tagName !== "INPUT") {
-                  e.preventDefault();
-                  currentBlock.current = {
-                    id: block.id,
-                    columns: [...block.columns],
-                    rows: [...block.rows],
-                  };
-                  setSelectedBlockId(block.id);
-                }
-              } : undefined}
-              onPanStart={!isMobile ? (e) => {
-                setDragging(true);
-                currentBlock.current = {
-                  id: block.id,
-                  columns: [...block.columns],
-                  rows: [...block.rows],
-                };
-              } : undefined}
-              onPanEnd={!isMobile ? () => {
-                setDragging(false);
-                if (currentBlock.current) {
-                  const updated = blocks.map((b) =>
-                    b.id === currentBlock.current.id
-                      ? { ...currentBlock.current }
-                      : b
-                  );
-                  onBlocksSave(updated);
-                  saveBlocks(updated).catch((e) =>
-                    console.error("Error saving blocks after drag:", e)
-                  );
-                }
-                currentBlock.current = null;
-              } : undefined}
-              onPan={!isMobile ? handleDrag : undefined}
             >
-              <div className="block-title-wrap">
-                <TextField.Input
-                  variant="soft"
-                  value={blockTitles[block.id] || ""}
-                  onChange={(e) => handleTitleChange(block.id, e.target.value)}
-                  onBlur={() => handleTitleBlur(block.id)}
-                  autoFocus={block.id === newBlockSpan?.id}
-                  onFocus={(e) => e.stopPropagation()}
-                  readOnly={isMobile}
-                />
+              <div className="block-label-wrap">
+                <span
+                  className={`block-label${
+                    block.title ? "" : " block-label-empty"
+                  }`}
+                >
+                  {block.title || "Untitled"}
+                </span>
               </div>
 
-              <motion.div className="resizer">
-                <div className="tools">
-                  <button
-                    type="button"
-                    className="block-color-swatch"
-                    style={{
-                      backgroundColor: block.color || DEFAULT_BLOCK_COLOR,
-                    }}
-                    onClick={(e) => openColorPicker(block.id, e)}
-                    title="Block color"
-                    aria-label="Block color"
-                  />
-                  <IconButton
-                    className="block-delete-btn"
-                    onClick={() => handleBlockDelete(block.id)}
-                    variant="soft"
-                  >
-                    <TrashIcon />
-                  </IconButton>
-                </div>
+              {!isMobile && (
                 <motion.div
-                  className="resize resize-left"
-                  onPanStart={!isMobile ? (e) => {
-                    setResizing(true);
-                    currentBlock.current = {
-                      id: block.id,
-                      columns: [...block.columns],
-                      rows: [...block.rows],
-                    };
-                  } : undefined}
-                  onPanEnd={!isMobile ? () => {
-                    setResizing(false);
+                  className="block-drag-surface"
+                  style={{ cursor: dragging ? "grabbing" : "grab" }}
+                  onMouseDown={() => {
+                    suppressClickRef.current = false;
+                    setBlockDragOrigin(block);
+                    setSelectedBlockId(block.id);
+                  }}
+                  onPanStart={() => {
+                    suppressClickRef.current = false;
+                    setDragging(true);
+                    setBlockDragOrigin(block);
+                  }}
+                  onPanEnd={() => {
+                    setDragging(false);
+                    dragOriginRef.current = null;
                     if (currentBlock.current) {
                       const updated = blocks.map((b) =>
                         b.id === currentBlock.current.id
-                          ? { ...currentBlock.current }
+                          ? { ...b, columns: [...currentBlock.current.columns], rows: [...currentBlock.current.rows] }
+                          : b
+                      );
+                      onBlocksSave(updated);
+                      saveBlocks(updated).catch((e) =>
+                        console.error("Error saving blocks after drag:", e)
+                      );
+                    }
+                    currentBlock.current = null;
+                  }}
+                  onPan={handleDrag}
+                />
+              )}
+
+              <motion.div className="resizer">
+                <motion.div
+                  className="resize resize-left"
+                  onPointerDown={!isMobile ? (e) => {
+                    e.stopPropagation();
+                    isResizingRef.current = true;
+                    suppressClickRef.current = false;
+                    setBlockDragOrigin(block);
+                    setSelectedBlockId(block.id);
+                  } : undefined}
+                  onPanStart={!isMobile ? (e) => {
+                    e.stopPropagation();
+                    isResizingRef.current = true;
+                    setResizing(true);
+                    setBlockDragOrigin(block);
+                  } : undefined}
+                  onPanEnd={!isMobile ? () => {
+                    isResizingRef.current = false;
+                    setResizing(false);
+                    dragOriginRef.current = null;
+                    if (currentBlock.current) {
+                      const updated = blocks.map((b) =>
+                        b.id === currentBlock.current.id
+                          ? { ...b, columns: [...currentBlock.current.columns], rows: [...currentBlock.current.rows] }
                           : b
                       );
                       onBlocksSave(updated);
@@ -671,37 +739,91 @@ export default function Grid({
           </div>
         </div>
       </div>
-      {typeof document !== "undefined" &&
-        colorPickerOpen.blockId &&
-        createPortal(
-          <div
-            ref={colorPickerRef}
-            className="block-color-picker-dropdown"
-            style={{
-              position: "fixed",
-              top: colorPickerOpen.top,
-              left: colorPickerOpen.left,
-              zIndex: 9999,
-            }}
-          >
-            <div className="block-color-grid">
+
+      {slotHint && !isMobile && (
+        <div
+          className="grid-slot-hint"
+          style={{ left: slotHint.x, top: slotHint.y }}
+          role="tooltip"
+        >
+          {slotHint.text}
+        </div>
+      )}
+
+      <Dialog.Root
+        open={!!editingBlockId}
+        onOpenChange={(open) => {
+          if (!open) closeBlockEditor();
+        }}
+      >
+        <Dialog.Content
+          className="block-editor-dialog"
+          style={{ maxWidth: 360 }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            const isTextarea = e.target.tagName === "TEXTAREA";
+            if (isTextarea && !e.metaKey && !e.ctrlKey) return;
+            e.preventDefault();
+            saveBlockEditor();
+          }}
+        >
+          <Dialog.Title>Time block</Dialog.Title>
+          <Dialog.Description size="2" mb="4">
+            Set the title, notes, and color for this block.
+          </Dialog.Description>
+          <div className="block-editor-fields">
+            <label className="block-editor-label" htmlFor="block-editor-title">
+              Title
+            </label>
+            <TextField.Root size="2" mb="3">
+              <TextField.Input
+                id="block-editor-title"
+                value={editDraft.title}
+                onChange={(e) =>
+                  setEditDraft((draft) => ({ ...draft, title: e.target.value }))
+                }
+                placeholder="Untitled"
+              />
+            </TextField.Root>
+            <label className="block-editor-label" htmlFor="block-editor-notes">
+              Notes
+            </label>
+            <TextArea
+              id="block-editor-notes"
+              size="2"
+              mb="3"
+              value={editDraft.notes}
+              onChange={(e) =>
+                setEditDraft((draft) => ({ ...draft, notes: e.target.value }))
+              }
+              placeholder="Add notes"
+              rows={3}
+            />
+            <span className="block-editor-label">Color</span>
+            <div className="block-color-grid block-editor-colors">
               {RADIX_BLOCK_COLORS.map((colorValue) => (
                 <button
                   key={colorValue}
                   type="button"
-                  className="block-color-option"
+                  className={`block-color-option${
+                    editingBlock?.color === colorValue ? " selected" : ""
+                  }`}
                   style={{ backgroundColor: colorValue }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleBlockColorChange(colorPickerOpen.blockId, colorValue);
-                  }}
+                  onClick={() => handleEditorColorChange(colorValue)}
                   aria-label={`Color ${colorValue}`}
                 />
               ))}
             </div>
-          </div>,
-          document.body
-        )}
+          </div>
+          <div className="block-editor-actions">
+            <Button color="red" variant="soft" onClick={handleEditorDelete}>
+              <TrashIcon width="16" height="16" />
+              Delete
+            </Button>
+            <Button onClick={saveBlockEditor}>Save</Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Root>
     </div>
   );
 }

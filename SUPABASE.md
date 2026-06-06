@@ -18,6 +18,7 @@ In the Supabase dashboard, open **SQL Editor** and run:
 create table if not exists public.blocks (
   id uuid primary key default gen_random_uuid(),
   title text default '',
+  notes text default '',
   color text default 'var(--crimson-4)',
   "columns" int[] not null default '{1, 2}',
   "rows" int[] default '{1, 2}',
@@ -30,6 +31,7 @@ create table if not exists public.blocks (
 -- If the table already exists, add time columns so block positions adapt when you change rows:
 -- alter table public.blocks add column if not exists "startTime" text default '09:00';
 -- alter table public.blocks add column if not exists "endTime" text default '10:00';
+-- alter table public.blocks add column if not exists notes text default '';
 
 -- Optional: enable Row Level Security (RLS) and allow anonymous read/write for the demo.
 -- For production, replace with proper auth policies.
@@ -42,6 +44,26 @@ create policy "Allow anonymous read and write for blocks"
 ```
 
 If you prefer not to use RLS, you can leave it disabled (the anon key will still work with default public access).
+
+## 2b. Create the `swimlanes` table
+
+Row times and deletions are stored in this table. In **SQL Editor**, run:
+
+```sql
+create table if not exists public.swimlanes (
+  id text primary key,
+  "start" text not null,
+  "end" text not null,
+  position int not null default 0
+);
+
+alter table public.swimlanes enable row level security;
+
+create policy "Allow anonymous read and write for swimlanes"
+  on public.swimlanes for all
+  using (true)
+  with check (true);
+```
 
 ## 3. Set environment variables
 

@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Grid from "./Grid";
 import Flex from "./Flex";
 import AutoGrid from "./AutoGrid";
+import { loadBlocksFromStorage } from "./Api";
 
 const DEFAULT_SWIMLANES = [
   { id: 'sl-1', start: '05:00', end: '07:00' },
@@ -19,21 +20,25 @@ function parseTimeToMinutes(t) {
   return (h || 0) * 60 + (m || 0);
 }
 
-/** Duration in hours between start and end (handles overnight). Minimum 1 hour. */
-function swimlaneDurationHours(swimlane) {
+const MINUTES_PER_ROW = 30;
+const HOUR_HEIGHT_PX = 45;
+const ROW_HEIGHT_PX = HOUR_HEIGHT_PX * (MINUTES_PER_ROW / 60);
+
+/** Duration in grid rows for a swimlane (each row = 30 minutes). Minimum 1 row. */
+function swimlaneRowSpan(swimlane) {
   let startMin = parseTimeToMinutes(swimlane.start);
   let endMin = parseTimeToMinutes(swimlane.end);
   if (endMin <= startMin) endMin += 24 * 60;
   const durationMinutes = endMin - startMin;
-  return Math.max(1, Math.round(durationMinutes / 60));
+  return Math.max(1, Math.round(durationMinutes / MINUTES_PER_ROW));
 }
 
-/** Build { swimlaneRows, rowCount } from swimlanes. Each swimlane gets rowSpan = duration in hours. */
+/** Build { swimlaneRows, rowCount } from swimlanes. Each grid row is 30 minutes. */
 function buildSwimlaneRows(swimlanes) {
   const swimlaneRows = [];
   let startRow = 0;
   for (const swimlane of swimlanes) {
-    const rowSpan = swimlaneDurationHours(swimlane);
+    const rowSpan = swimlaneRowSpan(swimlane);
     swimlaneRows.push({ swimlane, startRow, rowSpan });
     startRow += rowSpan;
   }
@@ -42,10 +47,14 @@ function buildSwimlaneRows(swimlanes) {
 
 const DEFAULT_BLOCK_COLOR = "var(--crimson-4)";
 
-export default function Section({ swimlanes = DEFAULT_SWIMLANES, onSwimlaneChange }) {
+export default function Section({
+  swimlanes = DEFAULT_SWIMLANES,
+  onSwimlaneChange,
+  clearBoardSignal = 0,
+}) {
   const [gap] = useState(9);
-  const [height] = useState(45); // change height of rows
-  const [blocks, setBlocks] = useState([]);
+  const [height] = useState(ROW_HEIGHT_PX);
+  const [blocks, setBlocks] = useState(() => loadBlocksFromStorage() || []);
   const [lastBlockColor, setLastBlockColor] = useState(DEFAULT_BLOCK_COLOR);
   const [autoGrid] = useState(false);
   const [snapGrid] = useState(true);
@@ -177,6 +186,7 @@ export default function Section({ swimlanes = DEFAULT_SWIMLANES, onSwimlaneChang
           onSwimlaneChange={onSwimlaneChange}
           lastBlockColor={lastBlockColor}
           onBlockColorUsed={setLastBlockColor}
+          clearBoardSignal={clearBoardSignal}
         />
       )}
       {showFlex && (

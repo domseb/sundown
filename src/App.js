@@ -1,10 +1,11 @@
 import "./styles.css";
 import '@radix-ui/themes/styles.css';
-import { Theme, Dialog, IconButton, Button, TextField } from '@radix-ui/themes';
-import { useState } from "react";
-import { GearIcon, PlusIcon, TrashIcon } from "@radix-ui/react-icons";
+import { Theme, Dialog, IconButton, Button, TextField, DropdownMenu } from '@radix-ui/themes';
+import { useState, useEffect } from "react";
+import { GearIcon, PlusIcon, TrashIcon, DotsVerticalIcon } from "@radix-ui/react-icons";
 import Section from "./Section";
 import SundownLogo from "./sundown-logo.svg";
+import { fetchSwimlanes, saveSwimlanes, loadSwimlanesFromStorage } from "./Api";
 
 const DEFAULT_SWIMLANES = [
   { id: 'sl-1', start: '05:00', end: '07:00' },
@@ -15,8 +16,51 @@ const DEFAULT_SWIMLANES = [
 ];
 
 export default function App() {
-  const [swimlanes, setSwimlanes] = useState(DEFAULT_SWIMLANES);
+  const [initialSwimlaneState] = useState(() => {
+    const stored = loadSwimlanesFromStorage();
+    return {
+      swimlanes: stored ?? DEFAULT_SWIMLANES,
+      ready: stored != null,
+    };
+  });
+  const [swimlanes, setSwimlanes] = useState(initialSwimlaneState.swimlanes);
+  const [swimlanesReady, setSwimlanesReady] = useState(initialSwimlaneState.ready);
+  const [swimlanesHydrated, setSwimlanesHydrated] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [clearBoardSignal, setClearBoardSignal] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchSwimlanes()
+      .then((data) => {
+        if (!cancelled && data?.length > 0) {
+          setSwimlanes(data);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSwimlanesReady(true);
+          setSwimlanesHydrated(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!swimlanesHydrated) return;
+
+    const timer = setTimeout(() => {
+      saveSwimlanes(swimlanes).catch((error) =>
+        console.error("Error saving swimlanes:", error)
+      );
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [swimlanes, swimlanesHydrated]);
 
   const addSwimlane = () => {
     setSwimlanes((prev) => [
@@ -42,18 +86,41 @@ export default function App() {
           <header className="app-header">
             <img src={SundownLogo} alt="Sundown" className="app-logo" />
             <div className="app-header-settings">
-              <IconButton
-                size="3"
-                variant="ghost"
-                onClick={() => setSettingsOpen(true)}
-                aria-label="Configure swimlanes"
-              >
-                <GearIcon width="20" height="20" />
-              </IconButton>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger>
+                  <IconButton
+                    size="3"
+                    variant="ghost"
+                    aria-label="Open menu"
+                    title="Menu"
+                  >
+                    <DotsVerticalIcon width="20" height="20" />
+                  </IconButton>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content align="end">
+                  <DropdownMenu.Item onSelect={() => setSettingsOpen(true)}>
+                    <GearIcon width="16" height="16" />
+                    Row settings
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    color="red"
+                    onSelect={() => setClearBoardSignal((n) => n + 1)}
+                  >
+                    <TrashIcon width="16" height="16" />
+                    Clear board
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
             </div>
           </header>
 
-          <Section swimlanes={swimlanes} onSwimlaneChange={updateSwimlane} />
+          {swimlanesReady && (
+            <Section
+              swimlanes={swimlanes}
+              onSwimlaneChange={updateSwimlane}
+              clearBoardSignal={clearBoardSignal}
+            />
+          )}
 
           <Dialog.Root open={settingsOpen} onOpenChange={setSettingsOpen}>
             <Dialog.Content style={{ maxWidth: 420 }}>
