@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { TextField, Button, Dialog, TextArea } from "@radix-ui/themes";
 import { fetchBlocks, saveBlocks } from "./Api";
@@ -196,9 +196,9 @@ export default function Grid({
     setSelectedBlockId(block.id);
   };
 
-  const closeBlockEditor = () => {
+  const closeBlockEditor = useCallback(() => {
     setEditingBlockId(null);
-  };
+  }, []);
 
   const saveBlockEditor = () => {
     if (!editingBlockId) return;
@@ -230,14 +230,7 @@ export default function Grid({
     onBlockColorUsed?.(color);
   };
 
-  const handleEditorDelete = () => {
-    if (!editingBlockId) return;
-    const blockId = editingBlockId;
-    closeBlockEditor();
-    removeBlock(blockId);
-  };
-
-  const removeBlock = (blockId) => {
+  const removeBlock = useCallback((blockId) => {
     currentBlock.current = null;
     dragOriginRef.current = null;
     setSelectedBlockId(null);
@@ -249,6 +242,13 @@ export default function Grid({
       });
       return updatedBlocks;
     });
+  }, [onBlocksSave]);
+
+  const handleEditorDelete = () => {
+    if (!editingBlockId) return;
+    const blockId = editingBlockId;
+    closeBlockEditor();
+    removeBlock(blockId);
   };
 
   useEffect(() => {
@@ -276,7 +276,7 @@ export default function Grid({
     return () => {
       document.removeEventListener("keydown", handleKeyPress);
     };
-  }, [onBlocksSave, editingBlockId]);
+  }, [removeBlock, closeBlockEditor, editingBlockId]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {

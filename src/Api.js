@@ -49,29 +49,53 @@ export function saveBlocksToStorage(blocks) {
   }
 }
 
-async function upsertBlockRows(rows) {
-  let { error } = await supabase.from('blocks').upsert(rows, { onConflict: 'id' });
+const OPTIONAL_BLOCK_COLUMNS = ['notes', 'startTime', 'endTime', 'widthType'];
 
-  if (
-    error?.code === 'PGRST204' &&
-    typeof error.message === 'string' &&
-    error.message.includes('notes')
-  ) {
-    console.warn(
-      'blocks.notes column is missing in Supabase. Notes are saved locally only until you run: alter table public.blocks add column if not exists notes text default \'\';'
-    );
-    ({ error } = await supabase
-      .from('blocks')
-      .upsert(
-        rows.map((row) => {
-          const { notes, ...rest } = row;
-          return rest;
-        }),
-        { onConflict: 'id' }
-      ));
+function stripOptionalBlockColumns(rows, columnsToStrip) {
+  const strip = new Set(columnsToStrip);
+  return rows.map((row) => {
+    const next = { ...row };
+    for (const key of strip) {
+      delete next[key];
+    }
+    return next;
+  });
+}
+
+function missingBlockColumn(error) {
+  if (error?.code !== 'PGRST204' || typeof error.message !== 'string') {
+    return null;
   }
+  const match = error.message.match(/Could not find the '([^']+)' column/);
+  return match?.[1] ?? null;
+}
 
-  if (error) throw error;
+async function upsertBlockRows(rows) {
+  let payload = rows;
+  const strippedColumns = new Set();
+
+  for (let attempt = 0; attempt <= OPTIONAL_BLOCK_COLUMNS.length; attempt += 1) {
+    const { error } = await supabase
+      .from('blocks')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (!error) {
+      if (strippedColumns.size > 0) {
+        console.warn(
+          `Saved blocks without Supabase columns: ${[...strippedColumns].join(', ')}. Run the SQL in SUPABASE.md to add them.`
+        );
+      }
+      return;
+    }
+
+    const missingColumn = missingBlockColumn(error);
+    if (!missingColumn || strippedColumns.has(missingColumn)) {
+      throw error;
+    }
+
+    strippedColumns.add(missingColumn);
+    payload = stripOptionalBlockColumns(payload, strippedColumns);
+  }
 }
 
 async function deleteRemovedBlocks(blocks) {
