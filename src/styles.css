@@ -1,3 +1,9 @@
+:root {
+  --break-4: #f4efe4;
+  --break-9: #e6d7bc;
+  --break-a7: rgba(120, 96, 58, 0.22);
+}
+
 ::selection {
   background: transparent !important; /* Removes the background color */
   color: inherit !important; /* Ensures the text color doesn't change */
@@ -75,11 +81,141 @@ body {
   display: block;
 }
 
+.week-balance {
+  grid-column: 1;
+  justify-self: start;
+  position: relative;
+}
+
+.week-balance-button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid rgba(23, 23, 23, 0.22);
+  border-radius: 999px;
+  background: #fff;
+  color: rgba(23, 23, 23, 0.72);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.week-balance-button:hover,
+.week-balance-button:focus-visible {
+  border-color: rgba(23, 23, 23, 0.55);
+}
+
+.week-pie {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.25;
+  stroke-linecap: round;
+}
+
+.week-balance-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  width: 240px;
+  padding: 14px 14px 10px;
+  background: #fff;
+  border: 1px solid rgba(23, 23, 23, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(23, 23, 23, 0.12);
+}
+
+.week-balance-title {
+  margin: 0 0 10px;
+  font-family: "Agrandir", sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  opacity: 0.55;
+}
+
+.week-balance-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.week-balance-row {
+  display: grid;
+  grid-template-columns: 10px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  font-family: "Agrandir", sans-serif;
+  font-size: 14px;
+}
+
+.week-balance-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.week-balance-label {
+  min-width: 0;
+}
+
+.week-balance-hours,
+.week-balance-percent {
+  font-variant-numeric: tabular-nums;
+}
+
+.week-balance-percent {
+  opacity: 0.5;
+  min-width: 2.4em;
+  text-align: right;
+}
+
 .app-header .app-header-settings {
   grid-column: 3;
   justify-self: end;
   display: flex;
   align-items: center;
+  gap: 4px;
+}
+
+.sunset-week {
+  background: transparent;
+  border: 1px solid rgba(23, 23, 23, 0.35);
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-family: "Agrandir", sans-serif;
+  font-size: 13px;
+  line-height: 1;
+  color: rgba(23, 23, 23, 0.72);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sunset-week:hover,
+.sunset-week:focus-visible {
+  color: #171717;
+  border-color: rgba(23, 23, 23, 0.85);
+}
+
+.sunset-keep-list {
+  margin: 0 0 20px;
+  padding-left: 18px;
+  font-family: "Agrandir", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(23, 23, 23, 0.8);
+}
+
+.sunset-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .app-header-settings .rt-DropdownMenuItem {
@@ -97,7 +233,39 @@ body {
   font-family: "Agrandir" !important;
   text-align: center;
   margin-bottom: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.column-title-day {
   opacity: 0.5;
+  font-weight: 400;
+}
+
+.column-title-day.is-today {
+  opacity: 1;
+  font-weight: 700;
+  font-synthesis: weight;
+}
+
+.column-weather {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  opacity: 0.5;
+}
+
+.column-weather svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  flex: none;
 }
 
 .column-title-corner {
@@ -338,11 +506,24 @@ li {
 }
 
 .block-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
   font-size: 14px;
   font-weight: 600;
   line-height: 1.1;
   color: color-mix(in srgb, var(--block-accent, var(--crimson-4)) 35%, black);
   white-space: nowrap;
+  overflow: hidden;
+}
+
+.block-emoji {
+  flex: none;
+}
+
+.block-label-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -373,6 +554,66 @@ li {
 
 .block-editor-colors {
   margin-top: 4px;
+}
+
+.activity-type-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.activity-type-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(23, 23, 23, 0.2);
+  background: transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: "Agrandir", sans-serif;
+  font-size: 14px;
+  line-height: 1;
+  color: #171717;
+  cursor: pointer;
+  text-align: left;
+}
+
+.activity-type-option.selected {
+  background: var(--type-color);
+  border-color: rgba(23, 23, 23, 0.45);
+}
+
+.activity-type-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--type-color);
+  box-shadow: inset 0 0 0 1px rgba(23, 23, 23, 0.15);
+  flex: none;
+}
+
+.activity-emoji-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.activity-emoji-option {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(23, 23, 23, 0.16);
+  background: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.activity-emoji-option.selected {
+  border-color: #171717;
+  box-shadow: 0 0 0 1px #171717;
 }
 
 .block-color-option.selected {
@@ -663,7 +904,7 @@ svg {
 /* Mobile-specific improvements */
 @media (max-width: 768px) {
   .section {
-    padding: 0;
+    padding: 32px 0 0;
   }
 
   /* One column in view: grid doesn't squish, scroll horizontally for other days */

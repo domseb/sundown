@@ -26,6 +26,9 @@ function blockToRow(block, { includeNotes = true } = {}) {
     row.notes = block.notes ?? '';
   }
 
+  if (block.activity) row.activity = block.activity;
+  if (block.emoji) row.emoji = block.emoji;
+
   return row;
 }
 
@@ -49,7 +52,7 @@ export function saveBlocksToStorage(blocks) {
   }
 }
 
-const OPTIONAL_BLOCK_COLUMNS = ['notes', 'startTime', 'endTime', 'widthType'];
+const OPTIONAL_BLOCK_COLUMNS = ['notes', 'startTime', 'endTime', 'widthType', 'activity', 'emoji'];
 
 function stripOptionalBlockColumns(rows, columnsToStrip) {
   const strip = new Set(columnsToStrip);
@@ -148,10 +151,13 @@ export const fetchBlocks = async () => {
     if (data?.length > 0) {
       const merged = data.map((block) => {
         const local = localBlocks?.find((item) => item.id === block.id);
-        if (local?.notes && !block.notes) {
-          return { ...block, notes: local.notes };
-        }
-        return block;
+        if (!local) return block;
+        return {
+          ...block,
+          notes: block.notes || local.notes,
+          activity: block.activity || local.activity,
+          emoji: block.emoji || local.emoji,
+        };
       });
       saveBlocksToStorage(merged);
       return merged;

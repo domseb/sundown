@@ -1,11 +1,18 @@
 import "./styles.css";
 import '@radix-ui/themes/styles.css';
 import { Theme, Dialog, IconButton, Button, TextField, DropdownMenu } from '@radix-ui/themes';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { GearIcon, PlusIcon, TrashIcon, DotsVerticalIcon } from "@radix-ui/react-icons";
 import Section from "./Section";
 import SundownLogo from "./sundown-logo.svg";
-import { fetchSwimlanes, saveSwimlanes, loadSwimlanesFromStorage } from "./Api";
+import { fetchSwimlanes, saveSwimlanes, loadSwimlanesFromStorage, loadBlocksFromStorage } from "./Api";
+import {
+  getWeekAheadMonday,
+  readDisplayedMonday,
+  rememberDisplayedMonday,
+} from "./dayWeather";
+import WeekBalance from "./WeekBalance";
+import { keepsAfterSunset, presentBlock } from "./activityTypes";
 
 const DEFAULT_SWIMLANES = [
   { id: 'sl-1', start: '05:00', end: '07:00' },
@@ -28,6 +35,14 @@ export default function App() {
   const [swimlanesHydrated, setSwimlanesHydrated] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [clearBoardSignal, setClearBoardSignal] = useState(0);
+  const [sunsetOpen, setSunsetOpen] = useState(false);
+  const [sunsetSignal, setSunsetSignal] = useState(0);
+  const [weekMonday, setWeekMonday] = useState(readDisplayedMonday);
+  const [forecastRefresh, setForecastRefresh] = useState(0);
+  const [chartBlocks, setChartBlocks] = useState(() => loadBlocksFromStorage() || []);
+  const handleBlocksChange = useCallback((nextBlocks) => {
+    setChartBlocks(nextBlocks || []);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,13 +94,28 @@ export default function App() {
     setSwimlanes((prev) => prev.filter((s) => s.id !== id));
   };
 
+  const keptAfterSunset = chartBlocks.filter(keepsAfterSunset);
+
+  const confirmSunset = () => {
+    const nextMonday = getWeekAheadMonday();
+    rememberDisplayedMonday(nextMonday);
+    setWeekMonday(nextMonday);
+    setForecastRefresh((n) => n + 1);
+    setSunsetSignal((n) => n + 1);
+    setSunsetOpen(false);
+  };
+
   return (
     <div className="App">
       <Theme>
         <div className="app-layout">
           <header className="app-header">
+            <WeekBalance blocks={chartBlocks} swimlanes={swimlanes} />
             <img src={SundownLogo} alt="Sundown" className="app-logo" />
             <div className="app-header-settings">
+              <button type="button" className="sunset-week" onClick={() => setSunsetOpen(true)}>
+                sunset the week
+              </button>
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger>
                   <IconButton
@@ -119,8 +149,36 @@ export default function App() {
               swimlanes={swimlanes}
               onSwimlaneChange={updateSwimlane}
               clearBoardSignal={clearBoardSignal}
+              sunsetSignal={sunsetSignal}
+              weekMonday={weekMonday}
+              forecastRefresh={forecastRefresh}
+              onBlocksChange={handleBlocksChange}
             />
           )}
+
+          <Dialog.Root open={sunsetOpen} onOpenChange={setSunsetOpen}>
+            <Dialog.Content className="sunset-confirm" style={{ maxWidth: 420 }}>
+              <Dialog.Title>Sunset the week</Dialog.Title>
+              <Dialog.Description size="2" mb="3">
+                This clears the board for the week ahead. Weekly blocks and Lunch stay.
+              </Dialog.Description>
+              <ul className="sunset-keep-list">
+                {keptAfterSunset.length > 0 ? (
+                  keptAfterSunset.map((block) => (
+                    <li key={block.id}>{presentBlock(block).title || "Untitled"}</li>
+                  ))
+                ) : (
+                  <li>Nothing on the board will be kept.</li>
+                )}
+              </ul>
+              <div className="sunset-confirm-actions">
+                <Button variant="outline" onClick={() => setSunsetOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={confirmSunset}>Confirm</Button>
+              </div>
+            </Dialog.Content>
+          </Dialog.Root>
 
           <Dialog.Root open={settingsOpen} onOpenChange={setSettingsOpen}>
             <Dialog.Content style={{ maxWidth: 420 }}>

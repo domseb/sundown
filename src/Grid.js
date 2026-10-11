@@ -3,26 +3,18 @@ import { motion } from "framer-motion";
 import { TextField, Button, Dialog, TextArea } from "@radix-ui/themes";
 import { fetchBlocks, saveBlocks } from "./Api";
 import { rowIndexToStartTime, formatTimeHint } from "./blockTimeUtils";
+import { datesFromMonday, toISODate, useWorkingWeekForecast } from "./dayWeather";
+import WeatherIcon from "./WeatherIcon";
+import {
+  ACTIVITY_TYPES,
+  activityDefaults,
+  emojiForActivity,
+  getActivity,
+  keepsAfterSunset,
+  presentBlock,
+} from "./activityTypes";
 import { v4 as uuidv4 } from "uuid";
 import { TrashIcon } from "@radix-ui/react-icons";
-
-const RADIX_BLOCK_COLORS = [
-  "var(--crimson-4)",
-  "var(--red-4)",
-  "var(--ruby-4)",
-  "var(--pink-4)",
-  "var(--plum-4)",
-  "var(--purple-4)",
-  "var(--violet-4)",
-  "var(--indigo-4)",
-  "var(--blue-4)",
-  "var(--cyan-4)",
-  "var(--teal-4)",
-  "var(--green-4)",
-  "var(--grass-4)",
-  "var(--orange-4)",
-  "var(--tomato-4)",
-];
 
 /** Map block accent (e.g. var(--purple-4)) to its a7 ring token (e.g. var(--purple-a7)) */
 function blockAccentToA7(accent) {
@@ -50,6 +42,9 @@ export default function Grid({
   lastBlockColor,
   onBlockColorUsed,
   clearBoardSignal = 0,
+  sunsetSignal = 0,
+  weekMonday,
+  forecastRefresh = 0,
   rowGroups = [
     { rows: 2, className: "focus-a" },
     { rows: 3, className: "focus-b" },
@@ -65,7 +60,12 @@ export default function Grid({
   const [selectedBlockId, setSelectedBlockId] = useState(null);
   const [editingSwimlaneId, setEditingSwimlaneId] = useState(null);
   const [editingBlockId, setEditingBlockId] = useState(null);
-  const [editDraft, setEditDraft] = useState({ title: "", notes: "" });
+  const [editDraft, setEditDraft] = useState({
+    title: "",
+    notes: "",
+    activity: "work",
+    emoji: "🧠",
+  });
   const currentBlock = useRef(null);
   const dragOriginRef = useRef(null);
   const isResizingRef = useRef(false);
@@ -74,6 +74,9 @@ export default function Grid({
   const [dragging, setDragging] = useState(false);
   const [slotHint, setSlotHint] = useState(null);
   const daysOfWeek = ["M", "T", "W", "T", "F"];
+  const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const forecasts = useWorkingWeekForecast(weekMonday, forecastRefresh);
+  const todayIso = toISODate(new Date());
   const DEFAULT_BLOCK_COLOR = "var(--crimson-4)";
 
   const displayBlocks = useMemo(
@@ -115,6 +118,26 @@ export default function Grid({
         console.error("Error clearing board:", error);
       });
   }, [clearBoardSignal, onBlocksSave]);
+
+  useEffect(() => {
+    if (sunsetSignal === 0) return;
+
+    setSelectedBlockId(null);
+    setEditingBlockId(null);
+    setNewBlockSpan(null);
+    currentBlock.current = null;
+    onBlocksSave((current) => {
+      const kept = (current || []).filter(keepsAfterSunset);
+      saveBlocks(kept)
+        .then(() => {
+          console.log("Week sunset, kept weekly blocks and lunch");
+        })
+        .catch((error) => {
+          console.error("Error sunsetting the week:", error);
+        });
+      return kept;
+    });
+  }, [sunsetSignal, onBlocksSave]);
 
   useEffect(() => {
     const saveNewBlock = () => {
@@ -182,16 +205,15 @@ export default function Grid({
     };
   }, [newBlockSpan, onBlocksSave]);
 
-  const editingBlock = useMemo(
-    () => blocks.find((block) => block.id === editingBlockId) || null,
-    [blocks, editingBlockId]
-  );
-
   const openBlockEditor = (block) => {
     setEditingBlockId(block.id);
+    const view = presentBlock(block);
+    const activity = view.activityId || "work";
     setEditDraft({
-      title: block.title || "",
+      title: view.title,
       notes: block.notes || "",
+      activity,
+      emoji: emojiForActivity(activity, view.emoji),
     });
     setSelectedBlockId(block.id);
   };
@@ -202,10 +224,19 @@ export default function Grid({
 
   const saveBlockEditor = () => {
     if (!editingBlockId) return;
+    const type = getActivity(editDraft.activity);
+    const color = type?.color || DEFAULT_BLOCK_COLOR;
     onBlocksSave((prevBlocks) => {
       const updatedBlocks = prevBlocks.map((block) =>
         block.id === editingBlockId
-          ? { ...block, title: editDraft.title, notes: editDraft.notes }
+          ? {
+              ...block,
+              title: editDraft.title,
+              notes: editDraft.notes,
+              activity: editDraft.activity,
+              emoji: editDraft.emoji,
+              color,
+            }
           : block
       );
       saveBlocks(updatedBlocks).catch((error) => {
@@ -213,21 +244,16 @@ export default function Grid({
       });
       return updatedBlocks;
     });
+    onBlockColorUsed?.(color);
     closeBlockEditor();
   };
 
-  const handleEditorColorChange = (color) => {
-    if (!editingBlockId) return;
-    onBlocksSave((prevBlocks) => {
-      const updatedBlocks = prevBlocks.map((block) =>
-        block.id === editingBlockId ? { ...block, color } : block
-      );
-      saveBlocks(updatedBlocks).catch((error) => {
-        console.error("Error saving block color:", error);
-      });
-      return updatedBlocks;
-    });
-    onBlockColorUsed?.(color);
+  const selectActivity = (activityId) => {
+    setEditDraft((draft) => ({
+      ...draft,
+      activity: activityId,
+      emoji: emojiForActivity(activityId, draft.emoji),
+    }));
   };
 
   const removeBlock = useCallback((blockId) => {
@@ -331,7 +357,7 @@ export default function Grid({
         Math.ceil((index + 1) / columnCount),
         Math.ceil((index + 1) / columnCount) + 1,
       ],
-      color: lastBlockColor || DEFAULT_BLOCK_COLOR,
+      ...activityDefaults(lastBlockColor),
     });
   };
 
@@ -467,15 +493,31 @@ export default function Grid({
           }}
         >
           <div className="column-title column-title-corner" style={{ gridColumn: 1, gridRow: 1 }} />
-          {daysOfWeek.map((day, index) => (
-            <div
-              key={index}
-              className="column-title"
-              style={{ gridColumn: index + 2, gridRow: 1 }}
-            >
-              {day}
-            </div>
-          ))}
+          {daysOfWeek.map((day, index) => {
+            const forecast = forecasts[index];
+            const isToday = datesFromMonday(weekMonday)[index] === todayIso;
+            const title = forecast
+              ? `${dayNames[index]}, ${forecast.label.toLowerCase()}, ${forecast.temp} degrees`
+              : dayNames[index];
+            return (
+              <div
+                key={dayNames[index]}
+                className="column-title"
+                style={{ gridColumn: index + 2, gridRow: 1 }}
+                title={title}
+              >
+                <span className={isToday ? "column-title-day is-today" : "column-title-day"}>
+                  {day}
+                </span>
+                {forecast && (
+                  <span className="column-weather">
+                    <WeatherIcon kind={forecast.kind} />
+                    <span>{forecast.temp}°</span>
+                  </span>
+                )}
+              </div>
+            );
+          })}
           {swimlaneRows.map(({ swimlane, startRow, rowSpan }, i) => {
             const prev = swimlaneRows[i - 1];
             const next = swimlaneRows[i + 1];
@@ -624,7 +666,15 @@ export default function Grid({
               }}
               className="grid"
             >
-          {displayBlocks.map((block, index) => (
+          {displayBlocks.map((block, index) => {
+            const view = presentBlock(block);
+            const activity = getActivity(view.activityId);
+            const blockColor =
+              view.activityId === "break" && activity
+                ? activity.color
+                : block.color || DEFAULT_BLOCK_COLOR;
+            const label = view.title || (view.emoji ? "" : "Untitled");
+            return (
             <motion.div
               key={index}
               tabIndex={0}
@@ -639,9 +689,9 @@ export default function Grid({
                 gridColumn: block.columns.join("/"),
                 gridRow: block.rows.join("/"),
                 cursor: isMobile ? "default" : dragging ? "grabbing" : undefined,
-                backgroundColor: block.color || DEFAULT_BLOCK_COLOR,
-                "--block-accent": block.color || DEFAULT_BLOCK_COLOR,
-                "--block-accent-ring": blockAccentToA7(block.color || DEFAULT_BLOCK_COLOR),
+                backgroundColor: blockColor,
+                "--block-accent": blockColor,
+                "--block-accent-ring": blockAccentToA7(blockColor),
               }}
               ref={(el) => (blocksRef.current[block.id] = el)}
               onClick={!isMobile ? (e) => {
@@ -654,12 +704,13 @@ export default function Grid({
               } : undefined}
             >
               <div className="block-label-wrap">
-                <span
-                  className={`block-label${
-                    block.title ? "" : " block-label-empty"
-                  }`}
-                >
-                  {block.title || "Untitled"}
+                <span className={`block-label${label ? "" : " block-label-empty"}`}>
+                  {view.emoji ? (
+                    <span className="block-emoji" aria-hidden="true">
+                      {view.emoji}
+                    </span>
+                  ) : null}
+                  {label ? <span className="block-label-text">{label}</span> : null}
                 </span>
               </div>
 
@@ -734,7 +785,8 @@ export default function Grid({
                 />
               </motion.div>
             </motion.div>
-          ))}
+            );
+          })}
             </div>
           </div>
         </div>
@@ -769,7 +821,7 @@ export default function Grid({
         >
           <Dialog.Title>Time block</Dialog.Title>
           <Dialog.Description size="2" mb="4">
-            Set the title, notes, and color for this block.
+            Set the title, notes, and activity for this block.
           </Dialog.Description>
           <div className="block-editor-fields">
             <label className="block-editor-label" htmlFor="block-editor-title">
@@ -799,21 +851,55 @@ export default function Grid({
               placeholder="Add notes"
               rows={3}
             />
-            <span className="block-editor-label">Color</span>
-            <div className="block-color-grid block-editor-colors">
-              {RADIX_BLOCK_COLORS.map((colorValue) => (
-                <button
-                  key={colorValue}
-                  type="button"
-                  className={`block-color-option${
-                    editingBlock?.color === colorValue ? " selected" : ""
-                  }`}
-                  style={{ backgroundColor: colorValue }}
-                  onClick={() => handleEditorColorChange(colorValue)}
-                  aria-label={`Color ${colorValue}`}
-                />
-              ))}
+            <span className="block-editor-label">Activity</span>
+            <div className="activity-type-grid" role="radiogroup" aria-label="Activity">
+              {ACTIVITY_TYPES.map((type) => {
+                const selected = editDraft.activity === type.id;
+                return (
+                  <button
+                    key={type.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    className={`activity-type-option${selected ? " selected" : ""}`}
+                    style={{ "--type-color": type.color }}
+                    onClick={() => selectActivity(type.id)}
+                  >
+                    <span className="activity-type-swatch" aria-hidden="true" />
+                    {type.label}
+                  </button>
+                );
+              })}
             </div>
+            {(() => {
+              const type = getActivity(editDraft.activity);
+              if (!type || type.emojis.length < 2) return null;
+              return (
+                <>
+                  <span className="block-editor-label">Emoji</span>
+                  <div className="activity-emoji-row" role="radiogroup" aria-label="Emoji">
+                    {type.emojis.map((emoji) => {
+                      const selected = editDraft.emoji === emoji;
+                      return (
+                        <button
+                          key={emoji}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          aria-label={emoji}
+                          className={`activity-emoji-option${selected ? " selected" : ""}`}
+                          onClick={() =>
+                            setEditDraft((draft) => ({ ...draft, emoji }))
+                          }
+                        >
+                          {emoji}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
           </div>
           <div className="block-editor-actions">
             <Button color="red" variant="soft" onClick={handleEditorDelete}>

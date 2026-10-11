@@ -1,10 +1,11 @@
 import "./styles.css";
 import './theme-config.css';
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Grid from "./Grid";
 import Flex from "./Flex";
 import AutoGrid from "./AutoGrid";
 import { loadBlocksFromStorage } from "./Api";
+import { activityDefaults } from "./activityTypes";
 
 const DEFAULT_SWIMLANES = [
   { id: 'sl-1', start: '05:00', end: '07:00' },
@@ -51,6 +52,10 @@ export default function Section({
   swimlanes = DEFAULT_SWIMLANES,
   onSwimlaneChange,
   clearBoardSignal = 0,
+  sunsetSignal = 0,
+  weekMonday,
+  forecastRefresh = 0,
+  onBlocksChange,
 }) {
   const [gap] = useState(9);
   const [height] = useState(ROW_HEIGHT_PX);
@@ -65,6 +70,10 @@ export default function Section({
     [swimlanes]
   );
 
+  useEffect(() => {
+    onBlocksChange?.(blocks);
+  }, [blocks, onBlocksChange]);
+
   const addNewBlock = () => {
     setBlocks((blocks) => [
       ...blocks,
@@ -73,7 +82,7 @@ export default function Section({
         rows: [1, 2],
         id: Date.now(),
         widthType: "fill",
-        color: lastBlockColor,
+        ...activityDefaults(lastBlockColor),
       },
     ]);
   };
@@ -187,6 +196,9 @@ export default function Section({
           lastBlockColor={lastBlockColor}
           onBlockColorUsed={setLastBlockColor}
           clearBoardSignal={clearBoardSignal}
+          sunsetSignal={sunsetSignal}
+          weekMonday={weekMonday}
+          forecastRefresh={forecastRefresh}
         />
       )}
       {showFlex && (
